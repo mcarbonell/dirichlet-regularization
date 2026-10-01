@@ -76,8 +76,10 @@
   - $\lambda=5.0$: Val PPL 10.62 | Quant PPL 44.80 | $E_D=0.003382$ (-20.0% energía Dirichlet) | ΔPPL: +34.18
   - $\lambda=15.0$: Val PPL 10.81 | Quant PPL 43.26 | $E_D=0.002427$ (-42.5% energía Dirichlet) | ΔPPL: +32.46
   - $\lambda=30.0$: Val PPL 10.98 | Quant PPL 39.80 | $E_D=0.001924$ (-54.5% energía Dirichlet) | ΔPPL: +28.82
-- [ ] Entrenamiento largo: 10K-30K steps en A100/A10G (Modal.com) con $\lambda^*=30.0$ (o 20.0)
-- [ ] Evaluar PPL pre/post cuantización con convergencia real (Opción B)
+- [/] Entrenamiento largo de publicación (10,000 steps, ~82M tokens en A10G en Modal.com):
+  - Topográfico 10M ($\lambda^*=30.0$, 10,000 steps): [En ejecución paralela en Modal]
+  - Baseline Estándar 10M ($\lambda=0.0$, 10,000 steps): [En ejecución paralela en Modal]
+- [ ] Evaluar PPL pre/post cuantización y retención generativa de texto (Opción B)
 
 ### 2.2 Experimento Beyond-Transformers ✅
 - [x] MLP clasificador en MNIST con `DirichletLoss` (`examples/train_mlp_dirichlet.py`)

@@ -278,9 +278,20 @@ def run_training(
     print(f"[*] Perplexity Delta (Δ):              +{delta_ppl:.2f}")
     print("=" * 70)
 
+    # 6b. Qualitative Sample Generation
+    try:
+        print("\n[*] Generating qualitative text sample...")
+        sample_prompt = "Once upon a time, there was a little"
+        prompt_ids = torch.tensor([tokenizer.encode(sample_prompt)], dtype=torch.long, device=device)
+        sample_out = model.generate(prompt_ids, max_new_tokens=50, temperature=0.7)
+        sample_text = tokenizer.decode(sample_out[0].tolist())
+        print(f"[+] Sample output:\n\"{sample_text}\"\n")
+    except Exception as e:
+        print(f"[!] Sample generation warning: {e}")
+
     # 7. Save Checkpoints
     lambda_tag = f"_lambda{topo_lambda}" if is_topographic else "_standard"
-    ckpt_name = f"tinystories_{scale}_{model_type.lower()}{lambda_tag}"
+    ckpt_name = f"tinystories_{scale}_{model_type.lower()}{lambda_tag}_{max_steps}s"
     pt_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.pt")
     tritq_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.tritq")
 
