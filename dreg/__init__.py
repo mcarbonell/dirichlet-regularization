@@ -10,6 +10,7 @@ from .topology import DirichletLoss, dirichlet_energy_2d, get_grid_dimensions
 from .spectral import dct_matrix_1d, dct2d, idct2d, BlockDCTTiler
 from .quantization import Base3TritQuantizer, TritQFormat
 from .model import TopographicTransformer, TopographicConfig, TopographicLinear
+from .baselines import random_orthogonal_transform_2d, svd_low_rank_approximation
 
 __version__ = "1.0.0"
 __all__ = [
@@ -25,4 +26,6 @@ __all__ = [
     "TopographicTransformer",
     "TopographicConfig",
     "TopographicLinear",
+    "random_orthogonal_transform_2d",
+    "svd_low_rank_approximation",
 ]

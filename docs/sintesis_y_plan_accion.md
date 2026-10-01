@@ -123,13 +123,13 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 ### Fase 5: Normalización de $\lambda$ y Baselines Científicos (P2)
 *Objetivo: Blindar la fundamentación científica frente a revisores pares.*
 
-- [ ] **5.1. Normalización de $\lambda$ invariante a la escala**:
+- [x] **5.1. Normalización de $\lambda$ invariante a la escala**:
   - Estudiar normalizar `dirichlet_energy_2d` por el número de aristas de la retícula o por la traza del Laplaciano en lugar de `sheet.numel()`, facilitando la portabilidad del hiperparámetro entre matrices de distinto tamaño.
-- [ ] **5.2. Baselines de comparación clave**:
+- [x] **5.2. Baselines de comparación clave**:
   - Implementar baseline de rotación ortogonal aleatoria / Hadamard (estilo QuIP) como control para desacoplar la dispersión de información de la suavidad espacial.
   - Comparar frente a truncamiento SVD a igual bpp.
   - Reportar métricas con múltiples semillas ($n \ge 3$) e intervalos de confianza.
-- [ ] **5.3. Script de reproducibilidad end-to-end**:
+- [x] **5.3. Script de reproducibilidad end-to-end**:
   - Crear un script único (`reproduce_all.py` o similar) que genere los gráficos y tablas del paper desde cero.
 
 ---
@@ -142,6 +142,6 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 | **Fase 2: Consistencia de Cuantizador y BPP** | 2 | 2 | ✅ Completada (2026-10-01) |
 | **Fase 3: Experimento de Falsificación Real** | 2 | 2 | ✅ Completada (2026-10-01) |
 | **Fase 4: Coherencia Documental y Claims** | 3 | 3 | ✅ Completada (2026-10-01) |
-| **Fase 5: Metodología y Baselines Avanzados** | 3 | 0 | ⏳ Pendiente |
+| **Fase 5: Metodología y Baselines Avanzados** | 3 | 3 | ✅ Completada (2026-10-01) |
 
-*Este documento debe actualizarse tras la finalización de cada tarea.*
+*Todas las fases del plan de remediación han sido completadas con éxito.*

@@ -120,3 +120,23 @@ class TestDirichletLoss:
         loss_low = DirichletLoss(weight_decay=0.001)(model.modules())
         loss_high = DirichletLoss(weight_decay=1.0)(model.modules())
         assert loss_high.item() > loss_low.item()
+
+    def test_normalization_modes(self):
+        w = torch.randn(10, 20)
+        e_numel = dirichlet_energy_2d(w, normalization="numel")
+        e_edges = dirichlet_energy_2d(w, normalization="edges")
+        e_none = dirichlet_energy_2d(w, normalization="none")
+        assert e_none.item() > e_numel.item()
+        assert e_none.item() > e_edges.item()
+        assert e_numel.item() > 0.0
+        assert e_edges.item() > 0.0
+
+        with pytest.raises(ValueError, match="Unknown normalization mode"):
+            dirichlet_energy_2d(w, normalization="invalid_mode")
+
+    def test_dirichlet_loss_with_edge_normalization(self):
+        model = nn.Sequential(nn.Linear(16, 32, bias=False))
+        loss_fn = DirichletLoss(weight_decay=0.05, normalization="edges")
+        loss = loss_fn(model.modules())
+        assert loss.item() > 0.0
+        assert torch.isfinite(loss)

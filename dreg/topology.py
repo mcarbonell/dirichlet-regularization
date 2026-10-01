@@ -23,7 +23,11 @@ def get_grid_dimensions(n: int) -> Tuple[int, int]:
     return 1, n
 
 
-def dirichlet_energy_2d(weight: torch.Tensor, grid_shape: Optional[Tuple[int, int]] = None) -> torch.Tensor:
+def dirichlet_energy_2d(
+    weight: torch.Tensor,
+    grid_shape: Optional[Tuple[int, int]] = None,
+    normalization: str = "numel",
+) -> torch.Tensor:
     """
     Computes the 2D Dirichlet Harmonic Energy of a weight matrix:
         E(W) = 0.5 * Tr(W^T L W) = 0.5 * sum_{(u,v) in E} ||w_u - w_v||^2
@@ -32,6 +36,11 @@ def dirichlet_energy_2d(weight: torch.Tensor, grid_shape: Optional[Tuple[int, in
         weight: Tensor of shape (out_features, in_features)
         grid_shape: Optional (H, W) tuple to reshape either dimension into a 2D sheet.
                     If None, uses the natural (out_features, in_features) grid.
+        normalization: Normalization mode for the energy scalar:
+            - 'numel' (default): Normalizes by total elements (M * N). Backward-compatible.
+            - 'edges': Normalizes by the exact number of grid edges ((M-1)*N + M*(N-1)),
+              providing scale-invariant roughness estimation across varying matrix shapes.
+            - 'none': Raw sum of squared differences without division.
 
     Returns:
         Scalar torch.Tensor representing the normalized Dirichlet energy.
@@ -51,15 +60,26 @@ def dirichlet_energy_2d(weight: torch.Tensor, grid_shape: Optional[Tuple[int, in
     if sheet.dim() == 2:
         diff_h = sheet[1:, :] - sheet[:-1, :]
         diff_w = sheet[:, 1:] - sheet[:, :-1]
-        energy = (diff_h.pow(2).sum() + diff_w.pow(2).sum()) / (sheet.numel() + 1e-8)
+        sum_sq = diff_h.pow(2).sum() + diff_w.pow(2).sum()
+        h, w = sheet.shape
+        num_edges = (h - 1) * w + h * (w - 1)
     elif sheet.dim() == 3:
         diff_h = sheet[1:, :, :] - sheet[:-1, :, :]
         diff_w = sheet[:, 1:, :] - sheet[:, :-1, :]
-        energy = (diff_h.pow(2).sum() + diff_w.pow(2).sum()) / (sheet.numel() + 1e-8)
+        sum_sq = diff_h.pow(2).sum() + diff_w.pow(2).sum()
+        h, w, c = sheet.shape
+        num_edges = ((h - 1) * w + h * (w - 1)) * c
     else:
         raise ValueError(f"Unsupported weight tensor shape for Dirichlet energy: {sheet.shape}")
 
-    return energy
+    if normalization == "numel":
+        return sum_sq / (sheet.numel() + 1e-8)
+    elif normalization == "edges":
+        return sum_sq / (max(num_edges, 1) + 1e-8)
+    elif normalization == "none":
+        return sum_sq
+    else:
+        raise ValueError(f"Unknown normalization mode: {normalization}. Expected 'numel', 'edges', or 'none'.")
 
 
 class DirichletLoss(nn.Module):
@@ -67,9 +87,10 @@ class DirichletLoss(nn.Module):
     PyTorch loss wrapper for Dirichlet harmonic pinning.
     Traverses linear projections and accumulates topological gradient penalty.
     """
-    def __init__(self, weight_decay: float = 0.01):
+    def __init__(self, weight_decay: float = 0.01, normalization: str = "numel"):
         super().__init__()
         self.weight_decay = weight_decay
+        self.normalization = normalization
 
     def forward(self, modules: Iterable[nn.Module]) -> torch.Tensor:
         total_energy = None
@@ -78,7 +99,7 @@ class DirichletLoss(nn.Module):
             if hasattr(mod, "weight") and mod.weight is not None and mod.weight.dim() == 2:
                 if total_energy is None:
                     total_energy = torch.tensor(0.0, device=mod.weight.device)
-                total_energy = total_energy + dirichlet_energy_2d(mod.weight)
+                total_energy = total_energy + dirichlet_energy_2d(mod.weight, normalization=self.normalization)
                 count += 1
         if total_energy is None:
             return torch.tensor(0.0)
