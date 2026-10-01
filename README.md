@@ -122,7 +122,7 @@ The Dirichlet regularization principle is **architecture-agnostic**. It is not s
 ### Macroscopic Cellular Weight Structures across Regularization Strengths
 
 <p align="center">
-  <img src="docs/attention-neuron/v380_weight_heatmaps.png" alt="Macroscopic Cellular Weight Regularization" width="98%">
+  <img src="docs/figures/v380_weight_heatmaps.png" alt="Macroscopic Cellular Weight Regularization" width="98%">
   <br>
   <em><b>Transition from Stochastic Noise to Smooth Cortical Manifolds:</b> Receptive weight patches across increasing Dirichlet surface tension ($\epsilon$) vs standard AdamW baseline (right). As spatial coupling increases, high-frequency salt-and-pepper noise dissolves into continuous, macroscopic functional bands.</em>
 </p>
@@ -130,7 +130,7 @@ The Dirichlet regularization principle is **architecture-agnostic**. It is not s
 ### Cross-Seed Manifold Alignment & Reproducibility
 
 <p align="center">
-  <img src="docs/attention-neuron/v381_cross_seed_heatmaps.png" alt="Cross-Seed Alignment Heatmaps" width="98%">
+  <img src="docs/figures/v381_cross_seed_heatmaps.png" alt="Cross-Seed Alignment Heatmaps" width="98%">
   <br>
   <em><b>Cross-Seed Robustness:</b> Weight configurations across independent random initializations (Seed 42 vs Seed 100). Standard AdamW (right) yields uncorrelated, chaotic noise patterns, whereas Dirichlet and anchored regularizations induce reproducible, continuous topological geometry.</em>
 </p>
