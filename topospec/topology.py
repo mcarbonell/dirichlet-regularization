@@ -1,0 +1,83 @@
+"""
+Topological Dirichlet Regularization Module
+===========================================
+Implements 2D cortical manifold embedding and Dirichlet harmonic pinning
+to eliminate permutation invariance and concentrate energy into low spatial frequencies.
+"""
+
+import math
+import torch
+import torch.nn as nn
+from typing import Tuple, Optional, Iterable
+
+
+def get_grid_dimensions(n: int) -> Tuple[int, int]:
+    """
+    Finds the integer factor pair (H, W) such that H * W = n
+    with the aspect ratio closest to 1.0 (square-like 2D cortical lattice).
+    """
+    sqrt_n = int(math.isqrt(n))
+    for h in range(sqrt_n, 0, -1):
+        if n % h == 0:
+            return h, n // h
+    return 1, n
+
+
+def dirichlet_energy_2d(weight: torch.Tensor, grid_shape: Optional[Tuple[int, int]] = None) -> torch.Tensor:
+    """
+    Computes the 2D Dirichlet Harmonic Energy of a weight matrix:
+        E(W) = 0.5 * Tr(W^T L W) = 0.5 * sum_{(u,v) in E} ||w_u - w_v||^2
+
+    Args:
+        weight: Tensor of shape (out_features, in_features)
+        grid_shape: Optional (H, W) tuple to reshape either dimension into a 2D sheet.
+                    If None, uses the natural (out_features, in_features) grid.
+
+    Returns:
+        Scalar torch.Tensor representing the normalized Dirichlet energy.
+    """
+    if grid_shape is not None:
+        h, w = grid_shape
+        # Embed rows or columns onto 2D cortical sheet
+        if weight.shape[0] == h * w:
+            sheet = weight.view(h, w, -1)
+        elif weight.shape[1] == h * w:
+            sheet = weight.view(-1, h, w).permute(1, 2, 0)
+        else:
+            sheet = weight
+    else:
+        sheet = weight
+
+    if sheet.dim() == 2:
+        diff_h = sheet[1:, :] - sheet[:-1, :]
+        diff_w = sheet[:, 1:] - sheet[:, :-1]
+        energy = (diff_h.pow(2).sum() + diff_w.pow(2).sum()) / (sheet.numel() + 1e-8)
+    elif sheet.dim() == 3:
+        diff_h = sheet[1:, :, :] - sheet[:-1, :, :]
+        diff_w = sheet[:, 1:, :] - sheet[:, :-1, :]
+        energy = (diff_h.pow(2).sum() + diff_w.pow(2).sum()) / (sheet.numel() + 1e-8)
+    else:
+        raise ValueError(f"Unsupported weight tensor shape for Dirichlet energy: {sheet.shape}")
+
+    return energy
+
+
+class DirichletLoss(nn.Module):
+    """
+    PyTorch loss wrapper for Dirichlet harmonic pinning.
+    Traverses linear projections and accumulates topological gradient penalty.
+    """
+    def __init__(self, weight_decay: float = 0.01):
+        super().__init__()
+        self.weight_decay = weight_decay
+
+    def forward(self, modules: Iterable[nn.Module]) -> torch.Tensor:
+        total_energy = torch.tensor(0.0, device=next(iter(modules)).weight.device)
+        count = 0
+        for mod in modules:
+            if hasattr(mod, "weight") and mod.weight is not None and mod.weight.dim() == 2:
+                total_energy = total_energy + dirichlet_energy_2d(mod.weight)
+                count += 1
+        if count == 0:
+            return total_energy
+        return self.weight_decay * (total_energy / count)

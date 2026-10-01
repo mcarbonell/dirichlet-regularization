@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# C shared libraries (keep source, recompile via build_kernel.py)
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.a
+
+# Checkpoints
+*.tritq
+*.pt
+*.bin

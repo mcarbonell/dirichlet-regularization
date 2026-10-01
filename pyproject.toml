@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "topographic-transformers"
+version = "1.0.0"
+authors = [
+  { name = "Topographic Spectral Research Group" }
+]
+description = "Topographic Spectral Transformers: Sub-1.0 bpp Quantization & Zero-Copy DMA Streaming for Edge Silicon"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.20.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mcarbonell/attention-neuron"
+"Repository" = "https://github.com/mcarbonell/attention-neuron"
