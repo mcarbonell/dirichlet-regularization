@@ -281,8 +281,8 @@ def run_training(
     # 6b. Qualitative Sample Generation
     try:
         print("\n[*] Generating qualitative text sample...")
-        sample_prompt = "Once upon a time, there was a little"
-        prompt_ids = torch.tensor([tokenizer.encode(sample_prompt)], dtype=torch.long, device=device)
+        enc = tokenizer.encode(sample_prompt)
+        prompt_ids = torch.tensor([enc.ids if hasattr(enc, "ids") else enc], dtype=torch.long, device=device)
         sample_out = model.generate(prompt_ids, max_new_tokens=50, temperature=0.7)
         sample_text = tokenizer.decode(sample_out[0].tolist())
         print(f"[+] Sample output:\n\"{sample_text}\"\n")
