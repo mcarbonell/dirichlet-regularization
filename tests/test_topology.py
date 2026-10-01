@@ -7,7 +7,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from topospec.topology import dirichlet_energy_2d, get_grid_dimensions, DirichletLoss
+from dreg.topology import dirichlet_energy_2d, get_grid_dimensions, DirichletLoss
 
 
 class TestGetGridDimensions:

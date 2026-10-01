@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "topographic-transformers"
+name = "dirichlet-regularization"
 version = "1.0.0"
 authors = [
-  { name = "Topographic Spectral Research Group" }
+  { name = "M. Carbonell" }
 ]
-description = "Topographic Spectral Transformers: Sub-1.0 bpp Quantization & Zero-Copy DMA Streaming for Edge Silicon"
+description = "Dirichlet Spatial Regularization for Neural Networks: cortical-inspired topographic smoothness enabling extreme spectral compressibility"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -24,5 +24,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/mcarbonell/topographic-transformers"
-"Repository" = "https://github.com/mcarbonell/topographic-transformers"
+"Homepage" = "https://github.com/mcarbonell/dirichlet-regularization"
+"Repository" = "https://github.com/mcarbonell/dirichlet-regularization"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

@@ -8,8 +8,8 @@ import pytest
 import numpy as np
 import torch
 
-from topospec.quantization import Base3TritQuantizer, TritQFormat
-from topospec.spectral import dct2d, idct2d
+from dreg.quantization import Base3TritQuantizer, TritQFormat
+from dreg.spectral import dct2d, idct2d
 
 
 class TestBase3TritLUT:

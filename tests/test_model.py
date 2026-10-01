@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from topospec.model import (
+from dreg.model import (
     TopographicTransformer,
     TopographicConfig,
     TopographicLinear,

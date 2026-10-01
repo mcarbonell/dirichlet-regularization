@@ -16,7 +16,7 @@ import torch.optim as optim
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from topospec import (
+from dreg import (
     TopographicTransformer,
     TopographicConfig,
     Base3TritQuantizer,

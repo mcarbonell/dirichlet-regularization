@@ -1,8 +1,9 @@
 """
-Topographic Spectral Transformers (topospec)
-============================================
-A mathematically principled framework for biological-inspired topographic regularization,
-sub-1.0 bpp Base-3 quantum trit quantization, and zero-copy streaming DMA inference in silicon.
+Dirichlet Regularization (dreg)
+===============================
+A mathematically principled framework for Dirichlet spatial regularization of neural
+network weights: cortical-inspired topographic smoothness that enables extreme spectral
+compressibility. Includes sub-1.0 bpp Base-3 trit quantization and zero-copy DMA inference.
 """
 
 from .topology import DirichletLoss, dirichlet_energy_2d, get_grid_dimensions

@@ -1,1 +1,1 @@
-# Tests for topospec package
+# Tests for dreg package

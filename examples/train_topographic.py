@@ -15,7 +15,7 @@ import torch.optim as optim
 # Add root directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from topospec import TopographicTransformer, TopographicConfig, DirichletLoss
+from dreg import TopographicTransformer, TopographicConfig, DirichletLoss
 
 
 def get_synthetic_data(vocab_size=256, seq_len=128, num_samples=1000):

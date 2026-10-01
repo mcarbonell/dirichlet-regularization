@@ -238,15 +238,15 @@ class TritQFormat:
 
                     # Band 0: uint8 with min/scale
                     (b0_len, b0_min, b0_scale) = struct.unpack("<Iff", f.read(12))
-                    b0_data = np.frombuffer(f.read(b0_len), dtype=np.uint8)
+                    b0_data = np.frombuffer(f.read(b0_len), dtype=np.uint8).copy()
 
                     # Band 1: nibble-packed with min/scale/count
                     (b1_len, b1_min, b1_scale, b1_count) = struct.unpack("<IffI", f.read(16))
-                    b1_data = np.frombuffer(f.read(b1_len), dtype=np.uint8)
+                    b1_data = np.frombuffer(f.read(b1_len), dtype=np.uint8).copy()
 
                     # Band 2: base-3 trit-packed with scale/count
                     (b2_len, b2_scale, b2_count) = struct.unpack("<IfI", f.read(12))
-                    b2_data = np.frombuffer(f.read(b2_len), dtype=np.uint8)
+                    b2_data = np.frombuffer(f.read(b2_len), dtype=np.uint8).copy()
 
                     # Reconstruct radial masks to rebuild the packed dict
                     rho = quantizer.compute_radial_grid(M, N, torch.device("cpu"))

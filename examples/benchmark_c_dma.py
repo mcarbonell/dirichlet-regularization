@@ -14,8 +14,8 @@ import numpy as np
 import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from topospec.spectral import dct_matrix_1d, dct2d, idct2d
-from topospec.quantization import Base3TritQuantizer
+from dreg.spectral import dct_matrix_1d, dct2d, idct2d
+from dreg.quantization import Base3TritQuantizer
 
 
 def load_c_kernel():
