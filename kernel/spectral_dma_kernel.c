@@ -88,8 +88,10 @@ typedef struct {
     int n0;
     int n1;
     int n2;
-    float s0;
-    float s1;
+    float min0;
+    float scale0;
+    float min1;
+    float scale1;
     float scale_trit;
     const uint8_t* b0;
     const uint8_t* b1;
@@ -128,18 +130,20 @@ static inline void decode_single_matrix(
 
     // 1. Band 0: 8-bit linear uint8
     if (rec->n0 > 0 && rec->b0 != NULL) {
-        float s0_scaled = rec->s0 / 127.0f;
+        float min0 = rec->min0;
+        float scale0 = rec->scale0;
         const uint8_t* b0 = rec->b0;
         const int32_t* m0 = rec->m0_idx;
         for (int i = 0; i < rec->n0; i++) {
-            float v = ((float)((int16_t)b0[i] - 128)) * s0_scaled;
+            float v = ((float)b0[i]) * scale0 + min0;
             dct_buf[m0[i]] = v;
         }
     }
 
     // 2. Band 1: 4-bit nibbles
     if (rec->n1 > 0 && rec->b1 != NULL) {
-        float s1_scaled = rec->s1 / 7.0f;
+        float min1 = rec->min1;
+        float scale1 = rec->scale1;
         const uint8_t* b1 = rec->b1;
         const int32_t* m1 = rec->m1_idx;
         int n1 = rec->n1;
@@ -148,10 +152,10 @@ static inline void decode_single_matrix(
         for (int i = 0; i < n1_bytes && out_i < n1; i++) {
             uint8_t byte = b1[i];
             uint8_t nib0 = (byte >> 4) & 0x0F;
-            dct_buf[m1[out_i++]] = ((float)((int16_t)nib0 - 7)) * s1_scaled;
+            dct_buf[m1[out_i++]] = ((float)nib0) * scale1 + min1;
             if (out_i < n1) {
                 uint8_t nib1 = byte & 0x0F;
-                dct_buf[m1[out_i++]] = ((float)((int16_t)nib1 - 7)) * s1_scaled;
+                dct_buf[m1[out_i++]] = ((float)nib1) * scale1 + min1;
             }
         }
     }
@@ -345,7 +349,9 @@ EXPORT int c_spectral_register_matrix(
     int mat_idx,
     int M, int N,
     int n0, int n1, int n2,
-    float s0, float s1, float scale_trit,
+    float min0, float scale0,
+    float min1, float scale1,
+    float scale_trit,
     const uint8_t* b0,
     const uint8_t* b1,
     const uint8_t* b2,
@@ -373,8 +379,10 @@ EXPORT int c_spectral_register_matrix(
     rec->n0 = n0;
     rec->n1 = n1;
     rec->n2 = n2;
-    rec->s0 = s0;
-    rec->s1 = s1;
+    rec->min0 = min0;
+    rec->scale0 = scale0;
+    rec->min1 = min1;
+    rec->scale1 = scale1;
     rec->scale_trit = scale_trit;
     rec->b0 = b0;
     rec->b1 = b1;
@@ -445,7 +453,9 @@ EXPORT void c_spectral_dma_wait_prefetch(void) {
 EXPORT void c_spectral_decode_matrix_direct(
     int M, int N,
     int n0, int n1, int n2,
-    float s0, float s1, float scale_trit,
+    float min0, float scale0,
+    float min1, float scale1,
+    float scale_trit,
     const uint8_t* b0,
     const uint8_t* b1,
     const uint8_t* b2,
@@ -465,8 +475,10 @@ EXPORT void c_spectral_decode_matrix_direct(
     rec.n0 = n0;
     rec.n1 = n1;
     rec.n2 = n2;
-    rec.s0 = s0;
-    rec.s1 = s1;
+    rec.min0 = min0;
+    rec.scale0 = scale0;
+    rec.min1 = min1;
+    rec.scale1 = scale1;
     rec.scale_trit = scale_trit;
     rec.b0 = b0;
     rec.b1 = b1;

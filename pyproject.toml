@@ -23,6 +23,21 @@ dependencies = [
     "numpy>=1.20.0",
 ]
 
+[project.optional-dependencies]
+examples = [
+    "torchvision>=0.15.0",
+]
+benchmarks = [
+    "modal>=0.50.0",
+    "datasets>=2.0.0",
+    "tokenizers>=0.13.0",
+    "transformers>=4.28.0",
+    "tqdm>=4.65.0",
+]
+dev = [
+    "pytest>=7.0.0",
+]
+
 [tool.setuptools]
 packages = ["dreg"]
 

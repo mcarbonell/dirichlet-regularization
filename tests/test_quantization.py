@@ -3,6 +3,7 @@ Tests for quantization module: Base-3 Trit quantization and .tritq format.
 """
 
 import os
+import struct
 import tempfile
 import pytest
 import numpy as np
@@ -175,3 +176,38 @@ class TestTritQFormat:
             assert loaded_weights["block.mlp.weight"].shape == (32, 16)
         finally:
             os.unlink(path)
+
+    def test_save_load_custom_radii(self):
+        """Save with custom radii should be preserved on load."""
+        weights = {"proj.weight": torch.randn(16, 16)}
+        config = {"d_model": 16}
+        custom_q = Base3TritQuantizer(r0=0.15, r1=0.35, r2=0.60)
+        with tempfile.NamedTemporaryFile(suffix=".tritq", delete=False) as f:
+            path = f.name
+        try:
+            TritQFormat.save(path, weights, config, quantizer=custom_q)
+            loaded_config, loaded_weights = TritQFormat.load(path)
+            assert loaded_config == config
+            assert loaded_weights["proj.weight"].shape == (16, 16)
+        finally:
+            os.unlink(path)
+
+    def test_safe_deserialization_no_arbitrary_code(self):
+        """Attempting to load malicious header payload should fail safely without executing code."""
+        with tempfile.NamedTemporaryFile(suffix=".tritq", delete=False) as f:
+            path = f.name
+        try:
+            with open(path, "wb") as f:
+                f.write(TritQFormat.MAGIC)
+                # Payload that would be dangerous if eval() was used:
+                malicious = "__import__('os').system('echo pwned')"
+                b = malicious.encode("utf-8")
+                f.write(struct.pack("<I", len(b)))
+                f.write(b)
+                f.write(struct.pack("<I", 0))
+
+            with pytest.raises((ValueError, SyntaxError)):
+                TritQFormat.load(path)
+        finally:
+            os.unlink(path)
+

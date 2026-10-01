@@ -6,10 +6,12 @@ Implements hierarchical 4-band spectral quantization and base-3 packaging:
   - Achieves sub-1.0 bpp (0.945 bpp effective rate) with 33.86x linear compression.
 """
 
+import json
+import ast
 import struct
 import numpy as np
 import torch
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 
 
 class Base3TritQuantizer:
@@ -152,12 +154,26 @@ class TritQFormat:
     MAGIC = b"TRITQ_V1"
 
     @classmethod
-    def save(cls, filepath: str, model_weights: Dict[str, torch.Tensor], config_dict: Dict[str, Any]):
-        quantizer = Base3TritQuantizer()
+    def save(
+        cls,
+        filepath: str,
+        model_weights: Dict[str, torch.Tensor],
+        config_dict: Dict[str, Any],
+        quantizer: Optional[Base3TritQuantizer] = None,
+    ):
+        if quantizer is None:
+            quantizer = Base3TritQuantizer()
         with open(filepath, "wb") as f:
             f.write(cls.MAGIC)
-            # Write header
-            cfg_bytes = str(config_dict).encode("utf-8")
+            # Write header with metadata and quantizer radii
+            header_meta = {
+                "config": config_dict,
+                "r0": float(quantizer.r0),
+                "r1": float(quantizer.r1),
+                "r2": float(quantizer.r2),
+                "version": 1,
+            }
+            cfg_bytes = json.dumps(header_meta).encode("utf-8")
             f.write(struct.pack("<I", len(cfg_bytes)))
             f.write(cfg_bytes)
 
@@ -197,7 +213,12 @@ class TritQFormat:
                     f.write(raw_fp16)
 
     @classmethod
-    def load(cls, filepath: str, device: torch.device = torch.device("cpu")) -> Tuple[Dict[str, Any], Dict[str, torch.Tensor]]:
+    def load(
+        cls,
+        filepath: str,
+        device: torch.device = torch.device("cpu"),
+        quantizer: Optional[Base3TritQuantizer] = None,
+    ) -> Tuple[Dict[str, Any], Dict[str, torch.Tensor]]:
         """
         Loads a .tritq checkpoint and reconstructs all weight tensors.
 
@@ -207,18 +228,31 @@ class TritQFormat:
         """
         from .spectral import idct2d
 
-        quantizer = Base3TritQuantizer()
-
         with open(filepath, "rb") as f:
             # Verify magic
             magic = f.read(8)
             if magic != cls.MAGIC:
                 raise ValueError(f"Invalid .tritq file: expected magic {cls.MAGIC!r}, got {magic!r}")
 
-            # Read config
+            # Read config safely (no eval())
             (cfg_len,) = struct.unpack("<I", f.read(4))
             cfg_str = f.read(cfg_len).decode("utf-8")
-            config_dict = eval(cfg_str)  # noqa: S307 — matches save() which uses str(dict)
+            try:
+                header_meta = json.loads(cfg_str)
+            except Exception:
+                header_meta = ast.literal_eval(cfg_str)
+
+            if isinstance(header_meta, dict) and "config" in header_meta:
+                config_dict = header_meta["config"]
+                file_r0 = float(header_meta.get("r0", 0.10))
+                file_r1 = float(header_meta.get("r1", 0.25))
+                file_r2 = float(header_meta.get("r2", 0.50))
+            else:
+                config_dict = header_meta
+                file_r0, file_r1, file_r2 = 0.10, 0.25, 0.50
+
+            if quantizer is None:
+                quantizer = Base3TritQuantizer(r0=file_r0, r1=file_r1, r2=file_r2)
 
             # Read number of tensors
             (num_tensors,) = struct.unpack("<I", f.read(4))

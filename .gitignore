@@ -19,8 +19,10 @@ build/
 *.pt
 *.bin
 
-# Datasets
+# Datasets & local caches
 data/
+.kilo/
+.pytest_cache/
 
 docs/private/
 docs/attention-neuron/
