@@ -252,7 +252,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64, help="Batch size")
     parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden dimension of MLP")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
-    parser.add_argument("--lambda-dirichlet", type=float, default=0.02, help="Dirichlet regularization weight")
+    parser.add_argument("--lambda-dirichlet", type=float, default=15.0, help="Dirichlet regularization weight")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

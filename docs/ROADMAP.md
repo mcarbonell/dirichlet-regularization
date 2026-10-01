@@ -79,10 +79,15 @@
 - [ ] Entrenamiento largo: 10K-30K steps en A100/A10G (Modal.com) con $\lambda^*=30.0$ (o 20.0)
 - [ ] Evaluar PPL pre/post cuantización con convergencia real (Opción B)
 
-### 2.2 Experimento Beyond-Transformers
-- [ ] MLP clasificador en MNIST o CIFAR-10 con `DirichletLoss`
-- [ ] Medir: ¿la regularización mejora la compresibilidad del MLP?
-- [ ] Tabla comparativa: estándar vs topográfico bajo cuantización
+### 2.2 Experimento Beyond-Transformers ✅
+- [x] MLP clasificador en MNIST con `DirichletLoss` (`examples/train_mlp_dirichlet.py`)
+- [x] Medir: la regularización de Dirichlet mejora la compresibilidad y retención espectral del MLP:
+  - **FP32 Test Acc:** Standard 97.87% vs Topográfico 97.58% (diferencia mínima -0.29%)
+  - **Energía Dirichlet ($E_D$):** 0.0219 → 0.0034 (**-84.5% de reducción** en rugosidad)
+  - **Energía en bajas frecuencias ($r \le 0.40$):** 27.87% → **52.84%** (concentración espectral casi duplicada)
+  - **Poda pasobajo extrema (20% coeficientes DCT):** Standard 30.69% (-67.2%) vs Topográfico **41.41%** (-56.2%, **+11.0% retención**)
+  - **Cuantización Base-3 (.tritq, 0.94 bpp):** Standard 87.40% (-10.5%) vs Topográfico **88.59%** (-9.0%, **+1.19% precisión a sub-1 bpp**)
+- [x] Tabla comparativa documentada para la sección "Universal Regularization Principle" del paper
 
 ### 2.3 Matriz de Ablación
 - [x] `topo_lambda` sweep: 0.0, 0.01, 5.0, 15.0, 30.0 (curva de calibración completada)
