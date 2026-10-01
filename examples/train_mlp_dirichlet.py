@@ -162,7 +162,8 @@ def quantize_and_evaluate(model: nn.Module, loader: DataLoader, device: torch.de
         for mod in q_model.modules():
             if isinstance(mod, nn.Linear):
                 w = mod.weight.detach()
-                packed = quantizer.quantize_matrix(w)
+                spec = dct2d(w)
+                packed = quantizer.quantize_matrix(spec)
                 rec_spec = quantizer.dequantize_matrix(packed, device=device)
                 w_rec = idct2d(rec_spec)
                 mod.weight.copy_(w_rec)
