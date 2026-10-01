@@ -16,9 +16,9 @@
 - [x] Actualizar `pyproject.toml` (name, description, URLs)
 - [x] Actualizar todos los imports en `examples/`
 - [x] Actualizar todos los imports en `tests/`
-- [ ] Actualizar `kernel/build_kernel.py` si tiene referencias
+- [x] Actualizar `kernel/build_kernel.py` (verificado limpio)
 - [x] Verificar: `python -m pytest tests/ -v` pasa al 100%
-- [ ] Commit y push
+- [x] Commit y push
 
 ### 0.2 Reescribir README
 - [x] Nueva narrativa: principio general → caso demostrado (Transformers)
@@ -27,7 +27,7 @@
 - [x] Actualizar badges
 
 ### 0.3 Actualizar Whitepaper
-- [ ] Actualizar referencias al repo (URLs, nombres de paquete)
+- [x] Actualizar referencias al repo (verificado limpio)
 - [ ] Mover enfoque: de "Edge AI whitepaper" a "Supplementary Technical Report"
 - [ ] Mantener contenido intacto (es evidencia valiosa)
 
