@@ -56,8 +56,8 @@ image = (
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="T4",
-    timeout=1800,
+    gpu="A10G",
+    timeout=3600,
     volumes={CHECKPOINT_DIR: volume},
 )
 def run_training(
@@ -279,7 +279,8 @@ def run_training(
     print("=" * 70)
 
     # 7. Save Checkpoints
-    ckpt_name = f"tinystories_{scale}_{model_type.lower()}"
+    lambda_tag = f"_lambda{topo_lambda}" if is_topographic else "_standard"
+    ckpt_name = f"tinystories_{scale}_{model_type.lower()}{lambda_tag}"
     pt_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.pt")
     tritq_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.tritq")
 
@@ -294,6 +295,7 @@ def run_training(
     return {
         "scale": scale,
         "model_type": model_type,
+        "topo_lambda": topo_lambda if is_topographic else 0.0,
         "num_params": num_params,
         "steps": max_steps,
         "baseline_ppl": baseline_val_ppl,
@@ -331,7 +333,7 @@ def main(
         topo_lambda=topo_lambda,
         is_topographic=is_topographic,
         dry_run=dry_run,
-        eval_interval=max(10, steps // 5),
+        eval_interval=max(10, min(100, steps // 20)),
     )
 
     print("\n" + "=" * 78)

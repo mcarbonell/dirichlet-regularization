@@ -69,9 +69,15 @@
 ## Fase 2: Validación Empírica (3-5 semanas)
 
 ### 2.1 Entrenamiento en TinyStories (GPU: Modal/Colab)
-- [ ] Configuración: 10M y 20M params, BPE tokenizer
-- [ ] Entrenamiento largo: 10K-30K steps en A100 (Modal.com)
-- [ ] Evaluar PPL pre/post cuantización con convergencia real
+- [x] Infraestructura Modal y cache de tokenizador BPE (4096 tokens)
+- [x] Calibración de $\lambda_{\text{topo}}$ (runs rápidos de 2,000 steps en A10G):
+  - $\lambda=0.0$ (Baseline Estándar): Val PPL 10.48 | Quant PPL 46.60 | $E_D=0.004225$ | ΔPPL: +36.12
+  - $\lambda=0.01$: Val PPL 10.44 | Quant PPL 47.95 | $E_D=0.004251$ | ΔPPL: +37.51 (gradiente despreciable)
+  - $\lambda=5.0$: Val PPL 10.62 | Quant PPL 44.80 | $E_D=0.003382$ (-20.0% energía Dirichlet) | ΔPPL: +34.18
+  - $\lambda=15.0$: Val PPL 10.81 | Quant PPL 43.26 | $E_D=0.002427$ (-42.5% energía Dirichlet) | ΔPPL: +32.46
+  - $\lambda=30.0$: Val PPL 10.98 | Quant PPL 39.80 | $E_D=0.001924$ (-54.5% energía Dirichlet) | ΔPPL: +28.82
+- [ ] Entrenamiento largo: 10K-30K steps en A100/A10G (Modal.com) con $\lambda^*=30.0$ (o 20.0)
+- [ ] Evaluar PPL pre/post cuantización con convergencia real (Opción B)
 
 ### 2.2 Experimento Beyond-Transformers
 - [ ] MLP clasificador en MNIST o CIFAR-10 con `DirichletLoss`
@@ -79,7 +85,7 @@
 - [ ] Tabla comparativa: estándar vs topográfico bajo cuantización
 
 ### 2.3 Matriz de Ablación
-- [ ] `topo_lambda`: 0, 0.001, 0.005, 0.01, 0.02, 0.05
+- [x] `topo_lambda` sweep: 0.0, 0.01, 5.0, 15.0, 30.0 (curva de calibración completada)
 - [ ] Radios de banda (r0, r1, r2): variaciones del default
 - [ ] Profundidad (L): 4, 6, 8, 12
 - [ ] Ancho (d_model): 128, 256, 384, 512
