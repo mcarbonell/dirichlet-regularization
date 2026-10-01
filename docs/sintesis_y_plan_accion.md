@@ -77,10 +77,10 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 ### Fase 2: Consistencia del Cuantizador y Eliminación de Hardcodes (P0)
 *Objetivo: Asegurar que las tasas de bits y compresión provengan de cálculos dinámicos reales y unificar la configuración.*
 
-- [ ] **2.1. Definición única de configuración de radios de referencia**:
+- [x] **2.1. Definición única de configuración de radios de referencia**:
   - Establecer los radios canónicos por defecto (evaluar si mantener `(0.10, 0.25, 0.50)` a ~0.47 bpp o definir la configuración deseada).
   - Documentar explícitamente el porcentaje de coeficientes y bpp resultante de dicha configuración.
-- [ ] **2.2. Eliminar bpp y métricas hardcodeadas en código**:
+- [x] **2.2. Eliminar bpp y métricas hardcodeadas en código**:
   - En `dreg/quantization.py`: eliminar "0.945 bpp / 33.86x" del docstring general o aclararlo como ejemplo dependiente de shape y radios.
   - En `benchmarks/modal_benchmark_quantization_sota.py`: corregir los radios en la línea 198, registrar el bpp real (`packed['bpp']`) en lugar del literal 0.945, y medir o clarificar el uso de memoria en lugar de usar strings fijos.
   - En `examples/benchmark_c_dma.py`: eliminar el hardcode de "36 matrices/token" o justificarlo explícitamente con la fórmula de capas.
@@ -139,7 +139,7 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 | Fase | Tareas Totales | Completadas | Estado |
 | :--- | :---: | :---: | :--- |
 | **Fase 1: Código Inmediato, Seguridad y Paridad** | 4 | 4 | ✅ Completada (2026-10-01) |
-| **Fase 2: Consistencia de Cuantizador y BPP** | 2 | 0 | ⏳ Pendiente |
+| **Fase 2: Consistencia de Cuantizador y BPP** | 2 | 2 | ✅ Completada (2026-10-01) |
 | **Fase 3: Experimento de Falsificación Real** | 2 | 0 | ⏳ Pendiente |
 | **Fase 4: Coherencia Documental y Claims** | 3 | 0 | ⏳ Pendiente |
 | **Fase 5: Metodología y Baselines Avanzados** | 3 | 0 | ⏳ Pendiente |

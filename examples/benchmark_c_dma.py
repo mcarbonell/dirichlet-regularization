@@ -155,11 +155,15 @@ def main():
 
     latency_us = (elapsed / num_runs) * 1e6
     matrices_per_sec = num_runs / elapsed
-    tokens_per_sec = matrices_per_sec / 36.0  # 36 matrices per token in L=6
+
+    # 6 transformer layers * 6 matrices/layer (Q, K, V, Out in Attn + Gate/Up, Down in SwiGLU MLP) = 36 projections/token
+    matrices_per_token = 6 * 6
+    tokens_per_sec = matrices_per_sec / float(matrices_per_token)
 
     print("\n" + "=" * 80)
     print(" C DMA MICRO-KERNEL BENCHMARK REPORT")
     print("=" * 80)
+    print(f"TritQ Bit Rate:               {packed['bpp']:.3f} bpp ({32.0 / packed['bpp']:.1f}x compression)")
     print(f"Single Matrix Decode Latency: {latency_us:.2f} µs")
     print(f"Decoding Throughput:          {matrices_per_sec:.1f} matrices/second")
     print(f"Transformer L=6 Equivalent:   {tokens_per_sec:.1f} tokens/second")

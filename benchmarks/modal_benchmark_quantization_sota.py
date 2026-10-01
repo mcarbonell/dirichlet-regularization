@@ -195,19 +195,26 @@ def run_quantization_benchmark():
     # 5. Base-3 Trit Spectral Quantization (Ours)
     def quantize_tritq(model_orig):
         m = copy.deepcopy(model_orig)
-        quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.0)
+        quantizer = Base3TritQuantizer(r0=0.10, r1=0.25, r2=0.50)
+        total_bits = 0.0
+        total_weights = 0
         with torch.no_grad():
             for p in m.get_linear_projections():
                 w = p.weight.detach()
                 s = dct2d(w)
                 packed = quantizer.quantize_matrix(s)
+                total_bits += packed["bpp"] * s.numel()
+                total_weights += s.numel()
                 rec_s = quantizer.dequantize_matrix(packed, device=device)
                 p.weight.copy_(idct2d(rec_s))
-        return m
+        avg_bpp = total_bits / max(total_weights, 1)
+        return m, avg_bpp
 
-    std_tritq_ppl = eval_ppl(quantize_tritq(std_model))
-    topo_tritq_ppl = eval_ppl(quantize_tritq(topo_model))
-    log_result("Base-3 TritQ (.tritq, Ours)", 0.945, std_tritq_ppl, topo_tritq_ppl, "< 1.0 MB (SRAM)", "Sub-1 bpp + Zero-Copy DMA Pipelining")
+    std_tritq_model, tritq_bpp = quantize_tritq(std_model)
+    topo_tritq_model, _ = quantize_tritq(topo_model)
+    std_tritq_ppl = eval_ppl(std_tritq_model)
+    topo_tritq_ppl = eval_ppl(topo_tritq_model)
+    log_result("Base-3 TritQ (.tritq, Ours)", tritq_bpp, std_tritq_ppl, topo_tritq_ppl, "< 1.0 MB (SRAM)", "Sub-1 bpp + Zero-Copy DMA Pipelining")
 
     print("=" * 105)
     return results
