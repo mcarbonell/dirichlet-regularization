@@ -69,7 +69,7 @@ In contrast, biological neural substrates minimize wiring length and maximize in
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/fig1_weight_heatmaps.png}
-    \caption{\textbf{Emergent Topographic Weight Manifolds in a 10M Parameter Transformer.} Side-by-side visualization of weights from layer 3 feedforward (top) and attention query projections (bottom). Left: Standard AdamW training yields unstructured, high-frequency white noise. Right: 2D Dirichlet regularization ($\lambda = 30.0$) forces weights to self-organize into continuous, smooth cortical manifolds without loss of functional accuracy.}
+    \caption{\textbf{Emergent Topographic Weight Manifolds.} Side-by-side visualization of weights from layer 1 (top) and layer 2 (bottom). Left: Standard AdamW training yields unstructured, high-frequency white noise ($E_D = 0.0016$). Right: 2D Dirichlet regularization forces weights to self-organize into continuous, smooth cortical manifolds ($E_D = 0.0001$, a 94\% reduction in spatial roughness) without loss of functional accuracy.}
     \label{fig:heatmaps}
 \end{figure}
 
