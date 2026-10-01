@@ -90,9 +90,9 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 ### Fase 3: Experimento de Falsificación Real y Verificable (P1)
 *Objetivo: Reemplazar el mock con ruido por un experimento reproducible y honesto que evalúe la hipótesis científica.*
 
-- [ ] **3.1. Reemplazo del dataset de ruido por datos estructurados**:
+- [x] **3.1. Reemplazo del dataset de ruido por datos estructurados**:
   - Modificar `examples/evaluate_falsification.py` para utilizar datos con estructura de lenguaje real (un subconjunto accesible de TinyStories o secuencias sintéticas generadas por autómatas/gramáticas sin dependencias externas pesadas).
-- [ ] **3.2. Veredictos dinámicos basados en métricas**:
+- [x] **3.2. Veredictos dinámicos basados en métricas**:
   - Eliminar los prints hardcodeados `"CATASTROPHIC COLLAPSE"` y `"PRESERVED (STABLE)"`.
   - Implementar lógica condicional real: calcular $\Delta \text{PPL} = \text{PPL}_{\text{quant}} - \text{PPL}_{\text{fp32}}$ o ratio relativo de degradación y emitir el diagnóstico basado en umbrales objetivos.
   - Reportar la tasa de bits real calculada en runtime sobre los pesos del modelo.
@@ -140,7 +140,7 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 | :--- | :---: | :---: | :--- |
 | **Fase 1: Código Inmediato, Seguridad y Paridad** | 4 | 4 | ✅ Completada (2026-10-01) |
 | **Fase 2: Consistencia de Cuantizador y BPP** | 2 | 2 | ✅ Completada (2026-10-01) |
-| **Fase 3: Experimento de Falsificación Real** | 2 | 0 | ⏳ Pendiente |
+| **Fase 3: Experimento de Falsificación Real** | 2 | 2 | ✅ Completada (2026-10-01) |
 | **Fase 4: Coherencia Documental y Claims** | 3 | 0 | ⏳ Pendiente |
 | **Fase 5: Metodología y Baselines Avanzados** | 3 | 0 | ⏳ Pendiente |
 
