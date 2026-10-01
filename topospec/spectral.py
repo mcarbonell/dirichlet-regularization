@@ -82,8 +82,8 @@ class BlockDCTTiler:
         tiles = padded.view(pm // self.b, self.b, pn // self.b, self.b).permute(0, 2, 1, 3)
         # Apply 2D DCT to each tile
         d_b = dct_matrix_1d(self.b, device=weight.device, dtype=weight.dtype)
-        # Vectorized tile DCT: D @ Tile @ D^T
-        spec_tiles = torch.einsum("ij, rcij, kj -> rcik", d_b, tiles, d_b)
+        # Vectorized tile DCT: S = D @ Tile @ D^T
+        spec_tiles = torch.einsum("ij, rcjk, lk -> rcil", d_b, tiles, d_b)
         return spec_tiles
 
     def untile_and_reconstruct(self, spec_tiles: torch.Tensor, orig_shape: Tuple[int, int]) -> torch.Tensor:
@@ -91,8 +91,8 @@ class BlockDCTTiler:
         Applies inverse 2D-DCT to each tile and reassembles the original (M, N) matrix.
         """
         d_b = dct_matrix_1d(self.b, device=spec_tiles.device, dtype=spec_tiles.dtype)
-        # Vectorized tile IDCT: D^T @ SpecTile @ D
-        tiles = torch.einsum("ji, rcij, jk -> rcik", d_b, spec_tiles, d_b)
+        # Vectorized tile IDCT: Tile = D^T @ Spec @ D
+        tiles = torch.einsum("ji, rcjk, kl -> rcil", d_b, spec_tiles, d_b)
         pm_tiles, pn_tiles, b, _ = tiles.shape
         reassembled = tiles.permute(0, 2, 1, 3).contiguous().view(pm_tiles * b, pn_tiles * b)
         m, n = orig_shape

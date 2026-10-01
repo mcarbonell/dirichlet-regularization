@@ -195,3 +195,86 @@ class TritQFormat:
                         f.write(struct.pack("<I", s))
                     f.write(struct.pack("<I", len(raw_fp16)))
                     f.write(raw_fp16)
+
+    @classmethod
+    def load(cls, filepath: str, device: torch.device = torch.device("cpu")) -> Tuple[Dict[str, Any], Dict[str, torch.Tensor]]:
+        """
+        Loads a .tritq checkpoint and reconstructs all weight tensors.
+
+        Returns:
+            (config_dict, weights_dict) where config_dict is the model config
+            and weights_dict maps tensor names to reconstructed torch.Tensors.
+        """
+        from .spectral import idct2d
+
+        quantizer = Base3TritQuantizer()
+
+        with open(filepath, "rb") as f:
+            # Verify magic
+            magic = f.read(8)
+            if magic != cls.MAGIC:
+                raise ValueError(f"Invalid .tritq file: expected magic {cls.MAGIC!r}, got {magic!r}")
+
+            # Read config
+            (cfg_len,) = struct.unpack("<I", f.read(4))
+            cfg_str = f.read(cfg_len).decode("utf-8")
+            config_dict = eval(cfg_str)  # noqa: S307 — matches save() which uses str(dict)
+
+            # Read number of tensors
+            (num_tensors,) = struct.unpack("<I", f.read(4))
+            weights = {}
+
+            for _ in range(num_tensors):
+                # Read tensor name
+                (name_len,) = struct.unpack("<H", f.read(2))
+                name = f.read(name_len).decode("utf-8")
+
+                # Read flag: 1 = compressed spectral, 0 = raw FP16
+                (flag,) = struct.unpack("<B", f.read(1))
+
+                if flag == 1:
+                    # Compressed 2D spectral tensor
+                    (M, N) = struct.unpack("<II", f.read(8))
+
+                    # Band 0: uint8 with min/scale
+                    (b0_len, b0_min, b0_scale) = struct.unpack("<Iff", f.read(12))
+                    b0_data = np.frombuffer(f.read(b0_len), dtype=np.uint8)
+
+                    # Band 1: nibble-packed with min/scale/count
+                    (b1_len, b1_min, b1_scale, b1_count) = struct.unpack("<IffI", f.read(16))
+                    b1_data = np.frombuffer(f.read(b1_len), dtype=np.uint8)
+
+                    # Band 2: base-3 trit-packed with scale/count
+                    (b2_len, b2_scale, b2_count) = struct.unpack("<IfI", f.read(12))
+                    b2_data = np.frombuffer(f.read(b2_len), dtype=np.uint8)
+
+                    # Reconstruct radial masks to rebuild the packed dict
+                    rho = quantizer.compute_radial_grid(M, N, torch.device("cpu"))
+                    mask0 = (rho <= quantizer.r0).numpy()
+                    mask1 = ((rho > quantizer.r0) & (rho <= quantizer.r1)).numpy()
+                    mask2 = ((rho > quantizer.r1) & (rho <= quantizer.r2)).numpy()
+
+                    packed = {
+                        "shape": (M, N),
+                        "band0": {"data": b0_data, "min": b0_min, "scale": b0_scale, "mask": mask0},
+                        "band1": {"data": b1_data, "min": b1_min, "scale": b1_scale, "mask": mask1, "count": b1_count},
+                        "band2": {"data": b2_data, "scale": b2_scale, "mask": mask2, "count": b2_count},
+                    }
+
+                    rec_spec = quantizer.dequantize_matrix(packed, device=device)
+                    weights[name] = idct2d(rec_spec)
+
+                else:
+                    # Uncompressed 1D parameter (FP16)
+                    (ndim,) = struct.unpack("<I", f.read(4))
+                    shape = []
+                    for _ in range(ndim):
+                        (s,) = struct.unpack("<I", f.read(4))
+                        shape.append(s)
+                    (raw_len,) = struct.unpack("<I", f.read(4))
+                    raw_bytes = f.read(raw_len)
+                    arr = np.frombuffer(raw_bytes, dtype=np.float16).copy()
+                    weights[name] = torch.from_numpy(arr).float().reshape(shape).to(device)
+
+        return config_dict, weights
+
