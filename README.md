@@ -56,7 +56,7 @@ Is tolerance to 0.945 bpp a general Transformer property or a strict consequence
 
 ```
 +---------------------------------------------------------------------------------------+
-| TOPOGRAPHIC TRANSFORMER SILICON PIPELINE (ZERO-COPY DMA)                               |
+| TOPOGRAPHIC TRANSFORMER SILICON PIPELINE (ZERO-COPY DMA)                              |
 +---------------------------------------------------------------------------------------+
 | FLASH / QSPI (300 KB): Stores .tritq compressed weights (0.945 bpp)                   |
 |   |                                                                                   |
@@ -68,7 +68,7 @@ Is tolerance to 0.945 bpp a general Transformer property or a strict consequence
 | L1D CACHE (1.25 KB): TRIT_LUT[256][5] -> O(1) instantaneous byte-to-trit unpacking    |
 |   |                                                                                   |
 |   v                                                                                   |
-| CPU / NPU: 77.4 tokens/second sustained streaming throughput in 500 KB active SRAM!  |
+| CPU / NPU: 77.4 tokens/second sustained streaming throughput in 500 KB active SRAM!   |
 +---------------------------------------------------------------------------------------+
 ```
 
