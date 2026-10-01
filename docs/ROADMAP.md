@@ -161,10 +161,11 @@
 ## Fase 4: Polish & Submission (1-2 semanas)
 
 - [ ] Reproducibility script: entrena, cuantiza, evalúa, genera tablas
-- [ ] README final con badges de CI, resultados
-- [ ] Supplementary materials: derivaciones, tablas extra
+- [x] README enriquecido con badges de CI, figuras de pesos y curvas espectrales
+- [x] Supplementary materials: derivaciones, tablas extra, whitepaper técnico
 - [ ] Code release con tag `v1.0.0`
-- [ ] Submit a TMLR (o venue elegido)
+- [ ] Submit a TMLR (o venue elegido / arXiv preprint)
+- [ ] **Línea de Optimización Avanzada:** Escalado de *Dirichlet Annealing & Cooldown Schedule* ([docs/propuesta_dirichlet_annealing.md](propuesta_dirichlet_annealing.md)) a TinyStories 10M para cerrar la brecha FP32 preservando la compresibilidad.
 
 ---
 
