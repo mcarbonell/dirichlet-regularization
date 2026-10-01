@@ -121,18 +121,18 @@
 ## Fase 3: Paper (Redacción en LaTeX) ✅
 
 ### 3.1 Preparación & Metadatos
-- [x] Afiliación institucional formalizada: Universitat Politècnica de València (UPV) / Valencian Research Institute for Artificial Intelligence (VRAIN)
+- [x] Autoría formalizada: Mario Raúl Carbonell Martínez (Independent Researcher, `marioraulcarbonell@gmail.com`). *Contacto pendiente con UPV/VRAIN para acordar colaboración/afiliación institucional formal.*
 - [x] Repositorio de código y modelos enlazado: `https://github.com/mcarbonell/dirichlet-regularization`
 - [ ] Elegir venue (recomendado: TMLR, rolling, sin deadline; o NeurIPS/ICLR)
 - [ ] Subida de preprint a arXiv para registrar prioridad intelectual
 
-### 3.2 Estructura y Redacción Completa del Paper (`paper/main.tex` / `paper/main.pdf`) ✅
+### 3.2 Estructura y Redacción Completa del Paper (`paper/paper-draft.tex` / `paper/paper-draft.pdf`) ✅
 - [x] **Abstract & Keywords:** Información teórica, compresión 0.945 bpp ($33.86\times$), ventajas empíricas en TinyStories y MNIST, runtime $<1.0$ MB SRAM.
 - [x] **1. Introduction:** Ruptura de la invariancia de calibre (gauge symmetry), mapas corticales, motivación y resumen de 6 contribuciones clave.
-- [x] **2. Related Work:** Post-training quantization (GPTQ, AWQ, QuIP#), topografía en neurociencia y métodos espectrales en deep learning.
+- [x] **2. Related Work:** Post-training quantization (GPTQ, AWQ, QuIP#, SqueezeLLM, SmoothQuant), topografía en neurociencia y métodos espectrales en deep learning.
 - [x] **3. Methodology:**
   - 3.1 Formulación matemática de la energía de Dirichlet discreta y difusión por calor ($-\nabla \mathcal{E}_D \propto \Delta W$).
-  - 3.2 Compactación espectral 2D-DCT y penalización cuadrática por autovalores laplacianos $\mu_{k,l}$.
+  - 3.2 Compactación espectral 2D-DCT, autovalores laplacianos $\mu_{k,l}$ y correspondencia con Laplacian Eigenmaps.
   - 3.3 Cuantización jerárquica radial y empaquetado Base-3 ($3^5 = 243 \le 256$, 1.60 bits/trit, 0.945 bpp) con tabla LUT $\mathcal{O}(1)$ de 1.25 KB.
   - 3.4 Runtime C de streaming Zero-Copy con doble buffer DMA y resolución de la Ley de Asimetría $\mathcal{O}(D^3)$ vs $\mathcal{O}(D^2)$ mediante Block-DCT tiling.
   - **Algoritmo 1:** Pseudocódigo completo formalizando entrenamiento regularizado y cuantización `.tritq`.
@@ -146,15 +146,15 @@
   - 5.1 Falsificación y análisis teórico del colapso de rango singular (atractor de fijación rango-1 por plantillas sinusoidales externas).
   - 5.2 Implicaciones en silicio edge (microcontroladores STM32H7, ESP32-S3, Cortex-M55).
   - 5.3 Declaración de reproducibilidad y enlaces de artefactos abiertos.
-- [x] **6. Conclusion & Acknowledgments:** VRAIN / UPV y Modal.
-- [x] **Bibliografía (`paper/references.bib`):** 15 citas completas procesadas con BibTeX y natbib.
+- [x] **6. Conclusion & Acknowledgments:** Agradecimiento a infraestructura en Modal.
+- [x] **Bibliografía (`paper/references.bib`):** 15 citas completas procesadas y validadas con BibTeX y natbib (100% citadas en el texto).
 
 ### 3.3 Figuras de Publicación Integradas ✅
 - [x] **Fig 1:** Heatmaps comparativos de pesos (manifolds corticales topográficos vs ruido blanco de AdamW) (`paper/figures/fig1_weight_heatmaps.png`)
 - [x] **Fig 2:** Espectros de energía acumulada 2D-DCT mostrando $>72\%$ de energía concentrada en bajas frecuencias (`paper/figures/fig2_dct_energy_spectra.png`)
 - [x] **Fig 3:** Pipeline de streaming Zero-Copy DMA ping-pong en sub-1 MB SRAM.
 - [x] **Fig 4:** Frontera de Pareto de calibración ($E_D$ vs Quantized PPL) (`paper/figures/fig3_pareto_quantization.png`)
-- [x] **Compilación local sin errores:** `paper/main.pdf` (12 páginas, 3.01 MB, 0 errores, 0 overfull hboxes).
+- [x] **Compilación local sin errores:** `paper/paper-draft.pdf` (12 páginas, 3.01 MB, 0 errores, 0 overfull hboxes).
 
 ---
 

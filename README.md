@@ -7,6 +7,7 @@
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-red.svg)](https://pytorch.org/)
 [![CI](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml/badge.svg)](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-57_passed-brightgreen.svg)](tests/)
+[![Paper Draft](https://img.shields.io/badge/Paper-Draft%20(PDF)-purple.svg)](paper/paper-draft.pdf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -171,6 +172,11 @@ dirichlet-regularization/
 │   ├── train_topographic.py     # Train a Transformer with Dirichlet pinning
 │   ├── evaluate_falsification.py # Reproduce the falsification experiment
 │   └── benchmark_c_dma.py       # Benchmark native C kernel throughput
+├── paper/
+│   ├── paper-draft.pdf          # Full academic manuscript (12 pages, PDF)
+│   ├── paper-draft.tex          # LaTeX source
+│   ├── references.bib           # BibTeX references
+│   └── figures/                 # Publication figures
 ├── tests/                       # 57 pytest tests
 ├── docs/
 │   ├── whitepaper.md            # Consolidated technical whitepaper
@@ -178,6 +184,15 @@ dirichlet-regularization/
 ├── pyproject.toml
 └── README.md
 ```
+
+---
+
+## Academic Paper Draft
+
+Read our complete publication manuscript:
+> 📄 [**"Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization for Sub-1.0 bpp Quantization and Zero-Copy Inference"**](paper/paper-draft.pdf)  
+> *Mario Raúl Carbonell Martínez (Independent Researcher)*  
+> 12 pages, LaTeX source and figures available in the [`paper/`](paper/) directory.
 
 ---
 

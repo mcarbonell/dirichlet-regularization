@@ -26,10 +26,9 @@
 \title{\textbf{Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization for Sub-1.0 bpp Quantization and Zero-Copy Inference}}
 
 \author{
-  \textbf{Marc Carbonell}\thanks{Corresponding author. Code and models available at \url{https://github.com/mcarbonell/dirichlet-regularization}.} \\
-  Valencian Research Institute for Artificial Intelligence (VRAIN) \\
-  Universitat Politècnica de València \\
-  \texttt{mrcm@alumni.upv.es}
+  \textbf{Mario Raúl Carbonell Martínez}\thanks{Corresponding author: \texttt{marioraulcarbonell@gmail.com}.\\Code and models: \url{https://github.com/mcarbonell/dirichlet-regularization}.} \\
+  Independent Researcher \\
+  \texttt{marioraulcarbonell@gmail.com}
 }
 
 \date{\today}
@@ -96,7 +95,7 @@ We establish the theoretical and empirical foundations of this principle and dem
 % -----------------------------------------------------------------------------
 
 \subsection{Post-Training Quantization for Large Language Models}
-Post-training quantization (PTQ) has seen intensive development due to the deployment costs of LLMs. Round-to-nearest (RTN) uniform integer quantization (INT8 and INT4) is widely adopted in industrial runtimes~\citep{dettmers2022llmint8,xiao2023smoothquant}. Second-order methods, such as Optimal Brain Surgeon extensions, were generalized to LLMs by GPTQ~\citep{frantar2022gptq}, which inverts column-wise Hessian approximations to compensate for quantization errors. AWQ~\citep{lin2023awq} showed that protecting the top 1\% salient activation channels preserves 4-bit accuracy. 
+Post-training quantization (PTQ) has seen intensive development due to the deployment costs of LLMs. Round-to-nearest (RTN) uniform integer quantization (INT8 and INT4) is widely adopted in industrial runtimes~\citep{dettmers2022llmint8,xiao2023smoothquant}. Second-order methods, such as Optimal Brain Surgeon extensions, were generalized to LLMs by GPTQ~\citep{frantar2022gptq}, which inverts column-wise Hessian approximations to compensate for quantization errors. AWQ~\citep{lin2023awq} showed that protecting the top 1\% salient activation channels preserves 4-bit accuracy, while non-uniform clustering approaches such as SqueezeLLM~\citep{kim2023squeezellm} leverage second-order sensitivities to preserve non-uniform coordinate distributions. 
 
 At the ultra-low-bit frontier ($\le 2$ bpp), QuIP~\citep{chee2024quip} and QuIP\# demonstrated that multiplying activations and weights by randomized orthogonal Hadamard matrices induces incoherence, smoothing spatial outliers and enabling 2-bit vector quantization with $E_8$ lattice codebooks. However, QuIP\# remains bound to $\ge 2.0$ bpp, introduces non-trivial decoding compute overhead, and requires holding the full uncompressed matrices in DRAM. In contrast, our approach operates at \textbf{0.945 bpp} through spectral domain compaction and executes in $<1$ MB SRAM.
 
@@ -163,7 +162,7 @@ By Parseval's theorem, the total Frobenius energy is preserved: $\|W\|_F^2 = \|S
 \begin{equation}
     \mathcal{E}_D(W) = \frac{1}{MN} \sum_{k=0}^{M-1} \sum_{l=0}^{N-1} \mu_{k, l} S_{k, l}^2, \quad \mu_{k, l} = 4 \left[ \sin^2\left(\frac{\pi k}{2M}\right) + \sin^2\left(\frac{\pi l}{2N}\right) \right].
 \end{equation}
-Because the eigenvalues $\mu_{k, l}$ scale quadratically with frequency indices $(k, l)$, penalizing $\mathcal{E}_D(W)$ penalizes high-frequency spectral coefficients $S_{k, l}^2$ with quadratic severity. As a result, the optimizer minimizes the task loss by populating almost exclusively the lowest spatial harmonics (Figure~\ref{fig:spectra}).
+Because the eigenvalues $\mu_{k, l}$ scale quadratically with frequency indices $(k, l)$, penalizing $\mathcal{E}_D(W)$ penalizes high-frequency spectral coefficients $S_{k, l}^2$ with quadratic severity. As a result, the optimizer minimizes the task loss by populating almost exclusively the lowest spatial harmonics (Figure~\ref{fig:spectra}), structurally connecting our continuous formulation with classical graph Laplacian spectral dimensionality reduction~\citep{belkin2003laplacian}.
 
 \subsection{Base-3 Trit Quantization (\texttt{.tritq}) at 0.945 bpp}
 Capitalizing on this spectral compaction, we partition the 2D frequency grid $(u, v) \in [0, 1]^2$ into radial bands defined by normalized radius $\rho(u, v) = \sqrt{u^2 + v^2}$:
@@ -415,7 +414,7 @@ To foster full scientific transparency and reproducibility, all code, pre-traini
 We presented Dirichlet Weight Regularization (\texttt{dreg}), a framework that breaks the permutation gauge symmetry of neural network weights to induce continuous, topographic weight manifolds. By establishing a rigorous connection between spatial Dirichlet surface tension and 2D-DCT spectral energy compaction, our approach enables sub-1.0 bpp Base-3 Trit Quantization (\texttt{.tritq}, 0.945 bpp) with superior perplexity retention over unregularized models. Validated across autoregressive language modeling (TinyStories 10M) and computer vision classification (MNIST), Dirichlet Regularization demonstrates that geometry and spectral smoothness are foundational principles for ultra-compact, energy-efficient deep learning.
 
 \section*{Acknowledgments}
-The author thanks the Valencian Research Institute for Artificial Intelligence (VRAIN) at the Universitat Politècnica de València (UPV) for institutional and research support, and Modal for cloud acceleration infrastructure.
+The author thanks Modal for providing cloud acceleration infrastructure.
 
 \newpage
 \bibliographystyle{plainnat}
