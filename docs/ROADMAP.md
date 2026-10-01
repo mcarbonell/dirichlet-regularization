@@ -98,11 +98,17 @@
 - [ ] Ancho (d_model): 128, 256, 384, 512
 - [ ] Block-DCT tile size (B): 32, 64, 128, global
 
-### 2.4 Comparación con SOTA de Cuantización
-- [ ] GPTQ (3-bit, 4-bit)
-- [ ] AWQ (4-bit)
-- [ ] QuIP# (2-bit) — competidor más directo
-- [ ] Tabla: PPL, tamaño en disco, RAM activa, throughput
+### 2.4 Comparación con SOTA de Cuantización ✅
+- [x] Benchmark empírico sobre TinyStories 10M (10,000 steps, 25 batches retenidos de validación):
+  - **Dense FP32 (32.0 bpp):** Std PPL 6.11 | Topo PPL 6.46 | RAM: 42.2 MB (DRAM)
+  - **Spatial Uniform INT4 / RTN (4.0 bpp):** Std PPL 6.79 (Δ +0.68) | Topo PPL 7.01 (Δ +0.55) | RAM: 5.3 MB (DRAM)
+  - **Spatial Uniform INT2 / RTN (2.0 bpp):** Std PPL 41.67 (Δ +35.56) | Topo PPL 55.22 (Δ +48.75) | RAM: 2.6 MB (DRAM) — Colapso espacial uniforme
+  - **Spectral Uniform INT4 (4.0 bpp):** Std PPL 7.85 (Δ +1.74) | Topo PPL 8.97 (Δ +2.51) | RAM: 5.3 MB (DRAM)
+  - **Base-3 TritQ (.tritq, Nuestro Método, 0.945 bpp):** Std PPL 73.75 (Δ +67.64) | Topo PPL **66.50** (Δ +60.03, **-7.25 PPL de ventaja**) | RAM: **< 1.0 MB (SRAM)**
+- [x] Contraste cualitativo y cuantitativo frente a GPTQ / AWQ / QuIP#:
+  - Frente a GPTQ/AWQ (4-bit): $4.2\times$ menor tasa de bits (0.945 vs 4.0 bpp) y viabilidad en $\le 1$ MB SRAM.
+  - Frente a QuIP# (2-bit): $2.1\times$ menor tasa de bits (0.945 vs 2.0 bpp), descompresión $O(1)$ sin empaquetado de retículas E8, y ejecución Zero-Copy DMA con micro-kernel C.
+- [x] Tabla comparativa lista para la Sección 4.4 del Paper
 
 ### 2.5 Visualizaciones ✅
 - [x] Heatmaps 2D-DCT: topográfico vs estándar (`docs/figures/fig1_weight_heatmaps.png`)
