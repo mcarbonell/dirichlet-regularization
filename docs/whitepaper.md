@@ -1,11 +1,22 @@
-# Topographic Spectral Transformers: Sub-1.0 bpp Quantum Trit Quantization and Asynchronous Zero-Copy DMA Streaming for Sub-Megabyte Edge-AI
+# Supplementary Technical Report: Systems Architecture, Hardware Streaming & Empirical Audits
 
-**Autores:** Laboratorio de Investigación `attention-neuron/`  
+**Contexto:** Reporte Técnico Suplementario para el manuscrito formal sobre *Regularización Espacial de Dirichlet*  
+**Autor:** M. Carbonell  
 **Fecha de Consolidación:** 2026-10-01  
-**Estado:** Documento de Síntesis / Whitepaper Técnico Consolidado  
+**Estado:** Documento Suplementario de Ingeniería de Sistemas y Evidencia Empírica  
 **Serie Experimental:** `v382` — `v395`  
-**Repositorio:** [`mcarbonell/attention-neuron`](https://github.com/mcarbonell/attention-neuron)  
+**Repositorio:** [`mcarbonell/dirichlet-regularization`](https://github.com/mcarbonell/dirichlet-regularization)  
+**Paquete:** `dreg`  
 **Clasificación de Rigor:** Nivel 1 a Nivel 2 (Ingeniería de Sistemas, Fundamentos Espectrales y Auditorías de Silicio)  
+
+---
+
+## Nota de Contexto y Enfoque
+
+> **Propósito de este documento:**  
+> La **Regularización Espacial de Dirichlet** es un principio matemático y biológico universal aplicable a cualquier arquitectura de redes neuronales (MLP, MoE, Convolucionales, Transformers) para inducir suavidad topográfica y extrema compresibilidad espectral.  
+> 
+> Este reporte técnico documenta exhaustivamente la **serie experimental de sistemas (`v382` a `v395`)** que valida este principio en su caso de uso más exigente: **la inferencia en silicio embebido (*Edge-AI*) con microcontroladores de $\le 1\text{ MB}$ de SRAM mediante Transformers autorregresivos cuantizados a sub-1.0 bpp y micro-kernel C zero-copy**. Sirve como suplemento técnico, evidencia de reproducibilidad y memoria de ingeniería para la publicación formal.
 
 ---
 
@@ -228,7 +239,7 @@ Este análisis establece que **en modelos anchos ($D \ge 384$), las matrices no 
 1. **Régimen de Pre-entrenamiento en Tareas de Gran Escala:**  
    En `v395`, los modelos de 8.7M y 18.9M de parámetros se entrenaron durante solo 40-50 pasos en CPU para verificar la ingeniería de memoria y la tasa de compresión en disco. Aunque la invarianza de compresión física a $0.931$ bpp ($34.37\times$) fue matemáticamente verificada, la convergencia del lenguaje requiere entre 10,000 y 30,000 pasos en aceleradores GPU para consolidar los atractores gramaticales de BPE.
 2. **Dependencia de la Simulación de Hilos del Sistema Operativo:**  
-   En `v394`, el canal DMA se implementó mediante un hilo de Windows (`CreateThread` con prioridad alta). Aunque la sobrecarga de señalización cayó a $10.15\ \mu\text{s}$, en un sistema operativo de escritorio existen fluctuaciones debidas a la planificación de tareas en segundo plano. En silicio físico (ej. microcontroladores Cortex-M / RISC-V con canales DMA autónomos sobre bus AXI), la conmutación se realiza mediante interrupciones de hardware a coste cero de CPU.
+   En `v394`, el canal DMA se implementó inicialmente mediante un hilo de Windows (`CreateThread` con prioridad alta), logrando señalización de $10.15\ \mu\text{s}$. En la versión consolidada del repositorio (`dreg`), se introdujo una capa de abstracción compatible con POSIX (`pthread` y variables de condición `pthread_cond`) garantizando portabilidad nativa en Linux, macOS y WSL2. No obstante, en un sistema operativo de escritorio siempre existen fluctuaciones debidas a la planificación del kernel. En silicio físico (ej. microcontroladores Cortex-M / RISC-V con canales DMA autónomos sobre bus AXI), la conmutación se realiza mediante interrupciones de hardware a coste cero de CPU.
 3. **Contención de Ancho de Banda de Bus en Silicio Monolítico:**  
    En microcontroladores donde el procesador y el controlador DMA comparten un único bus unificado sin memoria multi-banco, el tráfico de lectura desde Flash puede inducir *bus stalls*. Se recomienda ubicar `Buffer_A` y `Buffer_B` en bancos de memoria físicos independientes (ej. DTCM vs SRAM1/2 en STM32H7).
 

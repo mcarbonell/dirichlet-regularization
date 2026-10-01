@@ -26,10 +26,10 @@
 - [x] Actualizar code snippets con `import dreg`
 - [x] Actualizar badges
 
-### 0.3 Actualizar Whitepaper
-- [x] Actualizar referencias al repo (verificado limpio)
-- [ ] Mover enfoque: de "Edge AI whitepaper" a "Supplementary Technical Report"
-- [ ] Mantener contenido intacto (es evidencia valiosa)
+### 0.3 Actualizar Whitepaper ✅
+- [x] Actualizar referencias al repo (URLs actualizadas a `dirichlet-regularization`)
+- [x] Mover enfoque: de "Edge AI whitepaper" a "Supplementary Technical Report"
+- [x] Mantener contenido intacto (evidencia de ingeniería y auditorías de silicio preservada)
 
 ### 0.4 Actualizar Examples
 - [x] Revisar docstrings para reflejar el nuevo framing
