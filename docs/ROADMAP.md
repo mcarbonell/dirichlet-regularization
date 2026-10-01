@@ -104,10 +104,11 @@
 - [ ] QuIP# (2-bit) — competidor más directo
 - [ ] Tabla: PPL, tamaño en disco, RAM activa, throughput
 
-### 2.5 Visualizaciones
-- [ ] Heatmaps 2D-DCT: topográfico vs estándar
-- [ ] Curvas de energía acumulada vs radio espectral
-- [ ] Visualización 3D de superficie cortical de pesos
+### 2.5 Visualizaciones ✅
+- [x] Heatmaps 2D-DCT: topográfico vs estándar (`docs/figures/fig1_weight_heatmaps.png`)
+- [x] Curvas de energía acumulada vs radio espectral (`docs/figures/fig2_dct_energy_spectra.png`)
+- [x] Curva de calibración y frontera de Pareto (`docs/figures/fig3_pareto_quantization.png`)
+- [x] Muestras cualitativas de texto autorregresivo generadas en TinyStories (ambos modelos fluidos)
 
 ---
 
