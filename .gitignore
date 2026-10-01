@@ -18,3 +18,5 @@ build/
 *.tritq
 *.pt
 *.bin
+
+docs/private/

@@ -7,7 +7,7 @@ topology, SwiGLU FFNs, and integrated Dirichlet loss accumulation.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

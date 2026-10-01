@@ -72,12 +72,16 @@ class DirichletLoss(nn.Module):
         self.weight_decay = weight_decay
 
     def forward(self, modules: Iterable[nn.Module]) -> torch.Tensor:
-        total_energy = torch.tensor(0.0, device=next(iter(modules)).weight.device)
+        total_energy = None
         count = 0
         for mod in modules:
             if hasattr(mod, "weight") and mod.weight is not None and mod.weight.dim() == 2:
+                if total_energy is None:
+                    total_energy = torch.tensor(0.0, device=mod.weight.device)
                 total_energy = total_energy + dirichlet_energy_2d(mod.weight)
                 count += 1
+        if total_energy is None:
+            return torch.tensor(0.0)
         if count == 0:
             return total_energy
         return self.weight_decay * (total_energy / count)
