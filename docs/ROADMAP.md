@@ -32,8 +32,8 @@
 - [ ] Mantener contenido intacto (es evidencia valiosa)
 
 ### 0.4 Actualizar Examples
-- [ ] Revisar docstrings para reflejar el nuevo framing
-- [ ] Añadir un ejemplo simple: MLP + MNIST/CIFAR con `dreg.DirichletLoss`
+- [x] Revisar docstrings para reflejar el nuevo framing
+- [x] Añadir un ejemplo simple: MLP + MNIST/CIFAR con `dreg.DirichletLoss` (`examples/train_mlp_dirichlet.py`)
 
 ---
 
@@ -55,14 +55,14 @@
 - [x] `DirichletLoss` crash con `model.modules()`
 - [x] `BlockDCTTiler` einsum con índices incorrectos
 
-### 1.4 Portabilidad del Kernel C
-- [ ] Capa de abstracción: `#ifdef _WIN32` → Win32, `#else` → pthreads/semáforos POSIX
-- [ ] Verificar compilación en WSL2 (Linux)
-- [ ] Actualizar `build_kernel.py` para detectar plataforma
+### 1.4 Portabilidad del Kernel C ✅
+- [x] Capa de abstracción: `#ifdef _WIN32` → Win32, `#else` → pthreads & condvars POSIX
+- [x] Compatibilidad Linux/POSIX verificada (GCC `-lpthread`)
+- [x] Actualizar `build_kernel.py` para detectar plataforma y arquitectura (x86_64 vs ARM)
 
-### 1.5 CI con GitHub Actions
-- [ ] Workflow: lint + pytest (matrix: Windows + Ubuntu)
-- [ ] Badge en README
+### 1.5 CI con GitHub Actions ✅
+- [x] Workflow: matrix (Windows + Ubuntu, Python 3.10/3.11 con CPU PyTorch y build de kernel)
+- [x] Badge en README
 
 ---
 

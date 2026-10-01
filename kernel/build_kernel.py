@@ -52,19 +52,24 @@ def build():
         sys.exit(1)
 
     print(f"[*] Found compiler: {chosen_compiler}")
+    machine = platform.machine().lower()
+    is_x86 = any(arch in machine for arch in ["x86_64", "amd64", "x86", "i386", "i686"])
+
     if "cl" not in chosen_compiler.lower():
         cmd = [
             chosen_compiler,
             "-O3",
             "-shared",
-            "-mavx2",
-            "-mfma",
+        ]
+        if is_x86:
+            cmd.extend(["-mavx2", "-mfma"])
+        if "windows" not in system:
+            cmd.extend(["-fPIC", "-pthread", "-lm"])
+        cmd.extend([
             "-o",
             output_path,
             c_source,
-        ]
-        if "windows" not in system:
-            cmd.extend(["-fPIC", "-lm", "-lpthread"])
+        ])
     else:  # cl (MSVC)
         cmd = [
             "cl",

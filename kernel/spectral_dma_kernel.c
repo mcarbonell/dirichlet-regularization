@@ -17,7 +17,15 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#if defined(_WIN32) && !defined(USE_POSIX_THREADS)
 #include <windows.h>
+#define MEMORY_BARRIER() MemoryBarrier()
+#else
+#include <pthread.h>
+#include <unistd.h>
+#include <sched.h>
+#define MEMORY_BARRIER() __sync_synchronize()
+#endif
 
 #define MAX_SUBLAYERS 64
 #define MAX_MATRICES_PER_SUBLAYER 4
@@ -188,17 +196,19 @@ static inline void decode_sublayer_internal(
 }
 
 /* -------------------------------------------------------------------------
- * 5. Asynchronous DMA Worker Thread (Win32 Native, Zero-GIL)
+ * 5. Asynchronous DMA Worker Thread (Win32 & POSIX Native, Zero-GIL)
  * ------------------------------------------------------------------------- */
-static HANDLE g_h_req_event = NULL;
-static HANDLE g_h_done_event = NULL;
-static HANDLE g_h_worker_thread = NULL;
 static volatile int g_worker_stop = 0;
 
 static volatile int g_pending_k = -1;
 static float* volatile g_pending_target_buf = NULL;
 static float* volatile g_pending_dct_buf = NULL;
 static float* volatile g_pending_temp_buf = NULL;
+
+#if defined(_WIN32) && !defined(USE_POSIX_THREADS)
+static HANDLE g_h_req_event = NULL;
+static HANDLE g_h_done_event = NULL;
+static HANDLE g_h_worker_thread = NULL;
 
 static DWORD WINAPI dma_worker_thread_func(LPVOID lpParam) {
     (void)lpParam;
@@ -221,6 +231,49 @@ static DWORD WINAPI dma_worker_thread_func(LPVOID lpParam) {
     }
     return 0;
 }
+#else
+static pthread_t g_worker_thread;
+static int g_worker_thread_started = 0;
+
+static pthread_mutex_t g_req_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_req_cond  = PTHREAD_COND_INITIALIZER;
+static int             g_req_flag  = 0;
+
+static pthread_mutex_t g_done_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_done_cond  = PTHREAD_COND_INITIALIZER;
+static int             g_done_flag  = 1;
+
+static void* dma_worker_thread_posix(void* lpParam) {
+    (void)lpParam;
+    while (!g_worker_stop) {
+        pthread_mutex_lock(&g_req_mutex);
+        while (!g_req_flag && !g_worker_stop) {
+            pthread_cond_wait(&g_req_cond, &g_req_mutex);
+        }
+        if (g_worker_stop) {
+            pthread_mutex_unlock(&g_req_mutex);
+            break;
+        }
+        g_req_flag = 0;
+        pthread_mutex_unlock(&g_req_mutex);
+
+        int k = g_pending_k;
+        float* target_buf = g_pending_target_buf;
+        float* dct_buf = g_pending_dct_buf;
+        float* temp_buf = g_pending_temp_buf;
+
+        if (k >= 0 && target_buf != NULL && dct_buf != NULL && temp_buf != NULL) {
+            decode_sublayer_internal(k, target_buf, dct_buf, temp_buf);
+        }
+
+        pthread_mutex_lock(&g_done_mutex);
+        g_done_flag = 1;
+        pthread_cond_signal(&g_done_cond);
+        pthread_mutex_unlock(&g_done_mutex);
+    }
+    return NULL;
+}
+#endif
 
 /* -------------------------------------------------------------------------
  * 6. Exported C-FFI API
@@ -231,6 +284,7 @@ EXPORT int c_spectral_init(void) {
     g_num_sublayers = 0;
     g_worker_stop = 0;
 
+#if defined(_WIN32) && !defined(USE_POSIX_THREADS)
     g_h_req_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     g_h_done_event = CreateEvent(NULL, FALSE, TRUE, NULL); // Initially signaled
     if (!g_h_req_event || !g_h_done_event) return -1;
@@ -240,11 +294,26 @@ EXPORT int c_spectral_init(void) {
 
     // Set thread priority to HIGH for ultra-low latency DMA emulation
     SetThreadPriority(g_h_worker_thread, THREAD_PRIORITY_ABOVE_NORMAL);
+#else
+    pthread_mutex_init(&g_req_mutex, NULL);
+    pthread_cond_init(&g_req_cond, NULL);
+    g_req_flag = 0;
+
+    pthread_mutex_init(&g_done_mutex, NULL);
+    pthread_cond_init(&g_done_cond, NULL);
+    g_done_flag = 1;
+
+    if (pthread_create(&g_worker_thread, NULL, dma_worker_thread_posix, NULL) != 0) {
+        return -2;
+    }
+    g_worker_thread_started = 1;
+#endif
     return 0;
 }
 
 EXPORT void c_spectral_cleanup(void) {
     g_worker_stop = 1;
+#if defined(_WIN32) && !defined(USE_POSIX_THREADS)
     if (g_h_req_event) SetEvent(g_h_req_event);
     if (g_h_worker_thread) {
         WaitForSingleObject(g_h_worker_thread, 2000);
@@ -253,6 +322,21 @@ EXPORT void c_spectral_cleanup(void) {
     }
     if (g_h_req_event) { CloseHandle(g_h_req_event); g_h_req_event = NULL; }
     if (g_h_done_event) { CloseHandle(g_h_done_event); g_h_done_event = NULL; }
+#else
+    pthread_mutex_lock(&g_req_mutex);
+    g_req_flag = 1;
+    pthread_cond_signal(&g_req_cond);
+    pthread_mutex_unlock(&g_req_mutex);
+
+    if (g_worker_thread_started) {
+        pthread_join(g_worker_thread, NULL);
+        g_worker_thread_started = 0;
+    }
+    pthread_mutex_destroy(&g_req_mutex);
+    pthread_cond_destroy(&g_req_cond);
+    pthread_mutex_destroy(&g_done_mutex);
+    pthread_cond_destroy(&g_done_cond);
+#endif
     g_num_sublayers = 0;
 }
 
@@ -319,17 +403,42 @@ EXPORT void c_spectral_dma_start_prefetch(
     float* dct_buf,
     float* temp_buf
 ) {
+#if defined(_WIN32) && !defined(USE_POSIX_THREADS)
     ResetEvent(g_h_done_event);
     g_pending_k = k;
     g_pending_target_buf = target_sublayer_buf;
     g_pending_dct_buf = dct_buf;
     g_pending_temp_buf = temp_buf;
-    MemoryBarrier();
+    MEMORY_BARRIER();
     SetEvent(g_h_req_event);
+#else
+    pthread_mutex_lock(&g_done_mutex);
+    g_done_flag = 0;
+    pthread_mutex_unlock(&g_done_mutex);
+
+    g_pending_k = k;
+    g_pending_target_buf = target_sublayer_buf;
+    g_pending_dct_buf = dct_buf;
+    g_pending_temp_buf = temp_buf;
+    MEMORY_BARRIER();
+
+    pthread_mutex_lock(&g_req_mutex);
+    g_req_flag = 1;
+    pthread_cond_signal(&g_req_cond);
+    pthread_mutex_unlock(&g_req_mutex);
+#endif
 }
 
 EXPORT void c_spectral_dma_wait_prefetch(void) {
+#if defined(_WIN32) && !defined(USE_POSIX_THREADS)
     WaitForSingleObject(g_h_done_event, INFINITE);
+#else
+    pthread_mutex_lock(&g_done_mutex);
+    while (!g_done_flag) {
+        pthread_cond_wait(&g_done_cond, &g_done_mutex);
+    }
+    pthread_mutex_unlock(&g_done_mutex);
+#endif
 }
 
 /* Standalone decode for direct microbenchmarking of single matrix */
