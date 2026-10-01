@@ -9,7 +9,7 @@
 
 ### 0.1 Infraestructura del Rename
 - [x] Renombrar repo en GitHub: `topographic-transformers` → `dirichlet-regularization`
-- [ ] Renombrar directorio local
+- [x] Renombrar directorio local
 - [x] Actualizar git remote URL
 - [x] Renombrar paquete Python: `topospec` → `dreg`
 - [x] Actualizar `__init__.py` exports

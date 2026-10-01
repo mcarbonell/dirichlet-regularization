@@ -40,9 +40,9 @@
 \begin{abstract}
 Weight matrices in modern neural networks are universally initialized and optimized as unstructured, isotropic point clouds. This lack of spatial correlation imposes a fundamental information-theoretic barrier for ultra-low-bit post-training quantization, causing state-of-the-art methods to degrade precipitously below 2.0 bits per parameter (bpp). In this work, we propose \textbf{Dirichlet Weight Regularization} (\texttt{dreg}), a lightweight, principled mathematical framework that incorporates a continuous 2D Dirichlet harmonic energy penalty into standard stochastic gradient optimization. 
 By penalizing spatial roughness over a regular 2D lattice, our objective induces continuous cortical-like weight manifolds without constraining expressive capacity. 
-By spectral graph theory, this spatial continuity forces an exponential energy concentration in the low-frequency modes of the 2D Discrete Cosine Transform (2D-DCT), concentrating over $72\%$ of the total Frobenius variance in the lowest frequencies.
-We leverage this spectral smoothness to construct a hierarchical Base-3 Trit Quantization format (\texttt{.tritq}) operating at \textbf{0.945 bpp} ($33.86\times$ physical compression) using an exact $3^5 \le 256$ lossless byte-packing scheme with an $\mathcal{O}(1)$ L1-cache lookup table. 
-Empirically, in 10-million parameter autoregressive Transformers trained over 82 million tokens of TinyStories, Dirichlet regularization reduces weight roughness by \textbf{72.1\%} and achieves a \textbf{7.25 perplexity advantage} under 0.945 bpp quantization compared to unregularized baselines, while generating fluent narrative English. 
+By spectral graph theory, this spatial continuity forces a power-law energy concentration according to $\mathbb{E}[|C_{u, v}|^2] \propto (1 + \lambda (u^2 + v^2))^{-1}$ in the 2D Discrete Cosine Transform (2D-DCT) domain, concentrating over $72\%$ of the total Frobenius variance in the lowest frequencies.
+We leverage this spectral smoothness to construct a hierarchical Base-3 Trit Quantization format (\texttt{.tritq}) operating at sub-1.0 bpp (down to $0.47$ bpp, up to $68\times$ physical compression) using an exact $3^5 \le 256$ lossless byte-packing scheme for high-mid harmonics paired with high-frequency truncation, supported by an $\mathcal{O}(1)$ L1-cache lookup table. 
+Empirically, in 10-million parameter autoregressive Transformers trained over 82 million tokens of TinyStories, Dirichlet regularization reduces weight roughness by \textbf{72.1\%} and achieves a \textbf{6.76--7.25 perplexity advantage} under sub-1.0 bpp quantization compared to unregularized baselines, while generating fluent narrative English. 
 Furthermore, we show that the principle extends universally beyond Transformers: in feedforward vision classifiers on MNIST, Dirichlet regularization doubles low-frequency energy concentration and improves low-pass spectral retention by \textbf{+11.0\%}. 
 Finally, we pair this spectral representation with a native C zero-copy, double-buffered DMA prefetch engine, demonstrating complete autoregressive generation within \textbf{$<1.0$ MB of active SRAM}.
 \end{abstract}
@@ -240,7 +240,7 @@ For $D=512$, full reconstruction is $512\times$ more computationally expensive t
 \caption{Dirichlet Regularized Training and Spectral Base-3 Trit Quantization (\texttt{.tritq})}
 \label{alg:dreg_pipeline}
 \begin{algorithmic}[1]
-\REQUIRE Training dataset $\mathcal{D}$, model weights $\mathcal{W} = \{W^{(l)}\}$, learning rate $\eta$, Dirichlet penalty $\lambda_{\text{topo}}$, radial bands $(r_0, r_1, r_2) = (0.10, 0.25, 0.40)$.
+\REQUIRE Training dataset $\mathcal{D}$, model weights $\mathcal{W} = \{W^{(l)}\}$, learning rate $\eta$, Dirichlet penalty $\lambda_{\text{topo}}$, radial bands $(r_0, r_1, r_2) = (0.10, 0.25, 0.50)$.
 \STATE \textbf{Phase 1: Harmonic Regularized Optimization}
 \FOR{step $t = 1$ \TO $T$}
     \STATE Sample minibatch $(X, Y) \sim \mathcal{D}$ and evaluate task loss $\mathcal{L}_{\text{task}}(X, Y; \mathcal{W})$.
@@ -262,7 +262,7 @@ For $D=512$, full reconstruction is $512\times$ more computationally expensive t
     \STATE Pack ternary trits into bytes via $B = \sum_{k=0}^4 3^k (t_k + 1)$ using $3^5 \le 256$.
     \STATE \textbf{Band 3 ($\rho > r_2$):} Truncate to zero (0 bits stored).
 \ENDFOR
-\RETURN Compressed model package in \texttt{.tritq} format (0.945 bpp).
+\RETURN Compressed model package in \texttt{.tritq} format (sub-1.0 bpp).
 \end{algorithmic}
 \end{algorithm}
 
@@ -405,13 +405,13 @@ This negative result yields an important theoretical insight: \textbf{the value 
 Our C-DMA micro-kernel demonstrates that spectral neural networks can be executed directly on resource-constrained microcontrollers (e.g., STM32H7, ESP32-S3, or Cortex-M55) equipped with $512$ KB -- $1$ MB of internal SRAM and inexpensive external SPI Flash. Because `.tritq` bitstreams reside in Flash and are streamed layer-by-layer into a 256 KB ping-pong buffer via zero-copy DMA, the microcontroller never instantiates the full model in memory, enabling generative language modeling on ultra-low-power silicon.
 
 \subsection{Reproducibility \& Open Source Artifacts}
-To foster full scientific transparency and reproducibility, all code, pre-training scripts, quantization routines, and C micro-kernel implementations are released under the MIT open-source license at \url{https://github.com/mcarbonell/dirichlet-regularization}. Pre-trained FP32 weights, calibrated `.tritq` models, validation scripts, and evaluation logs are permanently archived in open repositories for independent verification.
+To foster full scientific transparency and reproducibility, all code, pre-training scripts, quantization routines, and C micro-kernel implementations are released under the MIT open-source license at \url{https://github.com/mcarbonell/dirichlet-regularization}. Pre-training checkpoints, calibrated `.tritq` models, validation scripts, and evaluation logs are provided in the project repository and accompanying open releases for independent verification.
 
 % -----------------------------------------------------------------------------
 \section{Conclusion}
 \label{sec:conclusion}
 % -----------------------------------------------------------------------------
-We presented Dirichlet Weight Regularization (\texttt{dreg}), a framework that breaks the permutation gauge symmetry of neural network weights to induce continuous, topographic weight manifolds. By establishing a rigorous connection between spatial Dirichlet surface tension and 2D-DCT spectral energy compaction, our approach enables sub-1.0 bpp Base-3 Trit Quantization (\texttt{.tritq}, 0.945 bpp) with superior perplexity retention over unregularized models. Validated across autoregressive language modeling (TinyStories 10M) and computer vision classification (MNIST), Dirichlet Regularization demonstrates that geometry and spectral smoothness are foundational principles for ultra-compact, energy-efficient deep learning.
+We presented Dirichlet Weight Regularization (\texttt{dreg}), a framework that breaks the permutation gauge symmetry of neural network weights to induce continuous, topographic weight manifolds. By establishing a rigorous connection between spatial Dirichlet surface tension and 2D-DCT spectral energy compaction, our approach enables sub-1.0 bpp Base-3 Trit Quantization (\texttt{.tritq}) with superior perplexity retention over unregularized models. Validated across autoregressive language modeling (TinyStories 10M) and computer vision classification (MNIST), Dirichlet Regularization demonstrates that geometry and spectral smoothness are foundational principles for ultra-compact, energy-efficient deep learning.
 
 \section*{Acknowledgments}
 The author thanks Modal for providing cloud acceleration infrastructure.

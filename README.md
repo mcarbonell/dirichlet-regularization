@@ -20,7 +20,7 @@ Standard neural networks treat weight matrices as unstructured bags of numbers. 
 
 **Dirichlet Regularization** changes this by imposing a simple inductive bias during training: *neighboring weights on a 2D lattice should be similar*, mimicking the topographic organization of biological cortex (retinotopic maps, tonotopic maps, cortical columns).
 
-This one constraint has a profound consequence: it **concentrates >90% of spectral energy into low-frequency harmonics** in the 2D-DCT domain, transforming weight matrices from white noise into smooth, JPEG-like surfaces that are trivially compressible.
+This one constraint has a profound consequence: it **concentrates spectral energy (>72% up to >96%) into low-frequency harmonics** in the 2D-DCT domain, transforming weight matrices from white noise into smooth, JPEG-like surfaces that are highly compressible.
 
 ```
 Standard Network Weights:          Dirichlet-Regularized Weights:
@@ -33,7 +33,7 @@ Standard Network Weights:          Dirichlet-Regularized Weights:
 │ █░▓▒█░▓▒█░▓▒█░▓▒█░▓ │            │ ▒▒▓▓▓▓████▓▓▒▒░░░░ │
 └─────────────────────┘            └─────────────────────┘
   White noise spectrum               Smooth, compressible
-  (incompressible)                    (>90% low-frequency)
+  (incompressible)                   (energy in low frequencies)
 ```
 
 ---
@@ -50,7 +50,7 @@ $$\mathcal{L}_{\text{Dirichlet}} = \frac{\lambda}{4} \sum_{(u, v) \in \mathcal{E
 
 where $L$ is the discrete graph Laplacian over the lattice $\mathcal{G} = (\mathcal{V}, \mathcal{E})$.
 
-Under this regularization, the 2D-DCT spectral coefficients decay according to:
+Under this regularization, the 2D-DCT spectral coefficients decay according to a power law:
 
 $$\mathbb{E}[|C_{u, v}|^2] \propto \frac{1}{1 + \lambda (u^2 + v^2)}$$
 
@@ -64,7 +64,7 @@ This is the key: **smooth weight matrices have compressible spectra** — just l
 ```bash
 git clone https://github.com/mcarbonell/dirichlet-regularization.git
 cd dirichlet-regularization
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Apply to Any PyTorch Model (2 lines of code)
@@ -114,44 +114,41 @@ total_loss.backward()
 
 The Dirichlet regularization principle is **architecture-agnostic**. It is not specific to Transformers — it applies to any dense weight matrix:
 
-| Domain | Without Dirichlet | With Dirichlet | Benefit |
+| Domain | Without Dirichlet | With Dirichlet | Practical Benefit |
 | :--- | :--- | :--- | :--- |
-| **Spectral Quantization** | White-noise spectrum; sub-1.0 bpp causes catastrophic collapse | Energy in low-frequency harmonics | **10×–34× lossless compression** |
-| **Anti-Overfitting** | Memorizes high-frequency noise | Built-in spectral low-pass filter | **Regularization without magnitude shrinkage** |
-| **Continual Learning** | Catastrophic forgetting via global weight shifts | Cortical-like functional clustering | **Localized task regions, reduced interference** |
-| **Analog/Neuromorphic HW** | Sensitive to wire crosstalk and thermal drift | Spatial smoothness absorbs adjacent noise | **Native compatibility with analog arrays** |
+| **Spectral Quantization** | Flat white-noise spectrum; sub-1.0 bpp causes severe degradation | Energy concentrated in basal harmonics | **10×–68× lossy compression with exact lossless base-3 bit-packing** |
+| **Anti-Overfitting** | Fits high-frequency noise | Built-in spectral low-pass filter | **Regularization without artificial magnitude shrinkage** |
+| **Continual Learning** *(Hypothesis)* | Catastrophic forgetting via global weight shifts | Cortical-like functional clustering | **Potential for localized task regions and reduced interference** |
+| **Analog / Neuromorphic** *(Hypothesis)* | Sensitive to wire crosstalk and thermal drift | Spatial smoothness absorbs adjacent noise | **Potential tolerance for crossbar conductance variations** |
 
 ---
 
 ## Case Study: Sub-1.0 bpp Transformer Quantization
 
-As a concrete demonstration, we apply Dirichlet Regularization to autoregressive Transformers and achieve **sub-1.0 bpp quantization** — compressing 32-bit weights to under 1 bit per parameter — with minimal quality loss.
+As a concrete demonstration, we apply Dirichlet Regularization to autoregressive Transformers and achieve **sub-1.0 bpp quantization** — compressing 32-bit weights to under 1 bit per parameter (down to ~0.47 bpp / 68x) — with graceful degradation compared to standard models.
 
-### The Falsification Test ($N=640$ Sequences)
+### The Falsification Test
 
-Does extreme quantization tolerance come from the Transformer architecture, or is it a strict consequence of Dirichlet regularization?
+Does extreme quantization tolerance come from the Transformer architecture itself, or is spatial continuity in the weights the enabling factor?
 
-| Model | Bit-Rate | Perplexity | Compression | Status |
-| :--- | :---: | :---: | :---: | :--- |
-| Standard (FP32) | 32.0 bpp | $11.88$ | 1.0× | Baseline |
-| **Standard (Quantized)** | **0.945 bpp** | ⚠️ **$43.43$** | 33.9× | ⚠️ **Catastrophic Collapse** |
-| Topographic (FP32) | 32.0 bpp | $10.80$ | 1.0× | Dirichlet-regularized |
-| **Topographic (Quantized)** | **0.945 bpp** | 🌟 **$11.54$** | **33.9×** | 🌟 **Preserved ($\Delta = +0.74$)** |
+Run the standalone benchmark:
+```bash
+python examples/evaluate_falsification.py
+```
 
-> **Conclusion:** Without Dirichlet regularization, quantizing to 0.945 bpp destroys the model. The spatial smoothness is the **necessary and sufficient condition** for extreme weight compression.
+The script trains both a Topographic model (with Dirichlet loss) and a Standard model (without spatial constraints) on structured sequential data, quantizes both under identical 4-band Base-3 Trit quantization, and evaluates Perplexity (PPL) and relative degradation dynamically.
 
 ### Quantization Format: Base-3 Trit Packing (`.tritq`)
 
-We pack 5 balanced trits $\{-1, 0, +1\}$ into a single byte ($3^5 = 243 \le 256$), achieving **0.945 bpp** — below the theoretical 1 bit/parameter barrier.
+We pack 5 balanced trits $\{-1, 0, +1\}$ into a single byte ($3^5 = 243 \le 256$), achieving an exact lossless packing rate of 1.60 bits/trit for the high-mid band, with higher frequencies truncated to 0 bits (yielding sub-1.0 bpp overall).
 
-### Embedded Inference Results
+### Embedded Inference Architecture
 
-| Model & Scale | Checkpoint | Active SRAM | Throughput | Target Hardware |
-| :--- | :---: | :---: | :---: | :--- |
-| L=6 (814K params) | 176.8 KB | 657.5 KB | 77.4 tok/s | ARM Cortex-M55 / RP2350 |
-| L=12 (1.60M params) | 299.7 KB | 500.5 KB | 39.8 tok/s | STM32H7 / ESP32-S3 |
+The repository includes a native C micro-kernel (`kernel/spectral_dma_kernel.c`) with zero-copy DMA double-buffering for real-time streaming inference on edge microcontrollers and embedded devices. Run the parity benchmark with:
 
-The repository includes a native C micro-kernel (`kernel/spectral_dma_kernel.c`) with zero-copy DMA double-buffering for real-time streaming inference on edge silicon.
+```bash
+python examples/benchmark_c_dma.py
+```
 
 ---
 

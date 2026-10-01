@@ -102,16 +102,16 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 ### Fase 4: Coherencia Documental y Saneamiento de Claims (P1)
 *Objetivo: Corregir el README, Whitepaper y Paper para alinearlos 100% con la realidad del código y la matemática.*
 
-- [ ] **4.1. Correcciones en README.md**:
+- [x] **4.1. Correcciones en README.md**:
   - Cambiar "10×–34× lossless compression" por "lossy spectral compression with exact lossless base-3 bit-packing".
   - Cambiar "exponential energy concentration" por "power-law energy decay" ($1/(1+\lambda(u^2+v^2))$).
   - Reemplazar la tabla de "falsificación" por los números reales reproducibles o contextualizarla con el experimento real de Fase 3.
   - Reubicar los claims de Continual Learning y Hardware Analógico bajo una sección explícita de "Hipótesis Teóricas y Trabajo Futuro".
-- [ ] **4.2. Correcciones en Whitepaper y ROADMAP**:
+- [x] **4.2. Correcciones en Whitepaper y ROADMAP**:
   - Reconciliar la discrepancia de RAM activa para L=12 (500.5 KB vs 754.2 KB).
   - Actualizar el estado de las tareas y checkboxes en `docs/ROADMAP.md`.
   - Corregir el claim de discrepancia numérica del kernel C al valor verificado tras la Fase 1.
-- [ ] **4.3. Correcciones en Paper (`paper/paper-draft.tex`)**:
+- [x] **4.3. Correcciones en Paper (`paper/paper-draft.tex`)**:
   - Corregir la contradicción de $\Delta$PPL entre Abstract (7.25), Tabla 10k (6.76) y Tabla SOTA.
   - Sincronizar los radios del Algoritmo 1 con el código y el valor real de bpp producido.
   - Corregir "exponential" a power-law en abstract e introducción.
@@ -141,7 +141,7 @@ Las cuatro auditorías coinciden en un diagnóstico unánime y nítido:
 | **Fase 1: Código Inmediato, Seguridad y Paridad** | 4 | 4 | ✅ Completada (2026-10-01) |
 | **Fase 2: Consistencia de Cuantizador y BPP** | 2 | 2 | ✅ Completada (2026-10-01) |
 | **Fase 3: Experimento de Falsificación Real** | 2 | 2 | ✅ Completada (2026-10-01) |
-| **Fase 4: Coherencia Documental y Claims** | 3 | 0 | ⏳ Pendiente |
+| **Fase 4: Coherencia Documental y Claims** | 3 | 3 | ✅ Completada (2026-10-01) |
 | **Fase 5: Metodología y Baselines Avanzados** | 3 | 0 | ⏳ Pendiente |
 
 *Este documento debe actualizarse tras la finalización de cada tarea.*

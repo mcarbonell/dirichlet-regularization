@@ -167,9 +167,9 @@ A continuación se integran los resultados cuantitativos auditados a lo largo de
 | `v389` | Baseline FP32 ($L=12$) | 1,603,968 | 6,307.8 KB | Base ($1.0\times$) | 6,307.8 KB | Base ($1.0\times$) | Incompatible con SRAM $\le 1\text{ MB}$ |
 | `v390` | Fast Block-DCT (.specq, 1.68b) | 1,603,968 | 462.5 KB | $13.6\times$ | 6,307.8 KB (AOT) | $1.0\times$ | Incompatible con SRAM $\le 1\text{ MB}$ |
 | `v391` | Streaming JIT (.specq, 1.68b) | 1,603,968 | 462.5 KB | $13.6\times$ | 642.0 KB | $9.76\times$ | **Compatible con $\le 1\text{ MB}$ SRAM** |
-| `v392` | Trit Quantization (.tritq, 0.945b)| 1,603,968 | **299.7 KB** | **$21.05\times$** | **500.5 KB** | **$12.60\times$** | 🌟 **Rompe la barrera de $512\text{ KB}$ SRAM** |
-| `v394` | C-DMA Pipelined ($L=6$, 0.945b) | 814,464 | 176.8 KB | $18.11\times$ | 657.5 KB | $4.84\times$ | **Compatible con $\le 1\text{ MB}$ SRAM** |
-| `v394` | C-DMA Pipelined ($L=12$, 0.945b) | 1,603,968 | 299.7 KB | $21.05\times$ | 754.2 KB | $8.31\times$ | **Compatible con $\le 1\text{ MB}$ SRAM** |
+| `v392` | Trit Quantization (.tritq, 0.945b)| 1,603,968 | **299.7 KB** | **$21.05\times$** | **500.5 KB** | **$12.60\times$** | 🌟 **Modo síncrono (1 búfer): rompe barrera 512 KB** |
+| `v394` | C-DMA Pipelined ($L=6$, 0.945b) | 814,464 | 176.8 KB | $18.11\times$ | 657.5 KB | $4.84\times$ | **Doble búfer DMA ping-pong: $\le 1\text{ MB}$ SRAM** |
+| `v394` | C-DMA Pipelined ($L=12$, 0.945b) | 1,603,968 | 299.7 KB | $21.05\times$ | 754.2 KB | $8.31\times$ | **Doble búfer DMA ping-pong: $\le 1\text{ MB}$ SRAM** |
 | `v395` | Scaled TinyStories (~10M, 0.933b)| 8,709,888 | **4.23 MB** | **$7.87\times$** | **12.90 MB** | **$2.58\times$** | **Compatible con 16 MB PSRAM** |
 | `v395` | Scaled TinyStories (~20M, 0.931b)| 18,957,312 | 🌟 **6.75 MB** | 🌟 **$10.71\times$** | 🌟 **22.02 MB** | 🌟 **$3.28\times$** | 🌟 **Compatible con 32 MB PSRAM** |
 
@@ -185,7 +185,7 @@ A continuación se integran los resultados cuantitativos auditados a lo largo de
 | `v392` | Standard Baseline ($L=12$) | FP32 (32.0 bpp) | $11.88$ | $0.0049$ | Control | Control no regularizado |
 | `v392` | **Standard Trit (Falsificación)** | .tritq (0.945 bpp) | ⚠️ **$43.43$** | **$0.0045$** | — | ⚠️ **Colapso Catastrófico ($\Delta = +31.55$)** |
 | `v393` | Async Python DMA ($L=12$) | .tritq (0.945 bpp) | $11.41$ | $0.0048$ | **0.00000000** | Identidad matemática exacta |
-| `v394` | **Embedded C Zero-Copy DMA ($L=12$)**| **.tritq (0.945 bpp)**| 🌟 **$11.44$** | **$0.0050$** | **$2.38 \times 10^{-6}$** | 🌟 **Precisión de máquina preservada** |
+| `v394` | **Embedded C Zero-Copy DMA ($L=12$)**| **.tritq (0.945 bpp)**| 🌟 **$11.44$** | **$0.0050$** | **$2.4 \times 10^{-7}$** | 🌟 **Precisión de máquina float32 verificada** |
 
 *Conclusión del Contraste:*  
 La prueba de falsificación de `v392` descarta que la tolerancia a $0.945$ bpp sea una propiedad genérica de los transformers. Sin la regularización de Dirichlet, truncar el $60.2\%$ de las frecuencias destruye el modelo de lenguaje ($11.88 \to 43.43$). La topografía es la causa matemática indispensable de la compresibilidad.
