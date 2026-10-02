@@ -1,0 +1,31 @@
+{
+  "experiment": "Topological Annealing on TinyStories 10M",
+  "architecture": "10.56M TopographicTransformer",
+  "max_steps": 5000,
+  "lambda_init": 30.0,
+  "cooldown_ratio": 0.15,
+  "cooldown_step": 4250,
+  "fp32_val_ppl": 7.49917,
+  "mean_ed": 0.002208,
+  "tritq_bpp": 1.638,
+  "tritq_val_ppl": 55.68199,
+  "delta_ppl": 48.18282,
+  "training_time_s": 495.5,
+  "comparison": {
+    "standard_10k_steps": {
+      "fp32_ppl": 6.11,
+      "ed": 0.006178,
+      "tritq_ppl": 73.75
+    },
+    "topographic_constant_10k_steps": {
+      "fp32_ppl": 6.46,
+      "ed": 0.001724,
+      "tritq_ppl": 66.50
+    },
+    "topographic_annealed_5k_steps": {
+      "fp32_ppl": 7.50,
+      "ed": 0.002208,
+      "tritq_ppl": 55.68
+    }
+  }
+}

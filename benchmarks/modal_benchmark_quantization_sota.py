@@ -197,7 +197,7 @@ def run_quantization_benchmark():
     # 5. Base-3 Trit Spectral Quantization (Ours)
     def quantize_tritq(model_orig):
         m = copy.deepcopy(model_orig)
-        quantizer = Base3TritQuantizer(r0=0.10, r1=0.25, r2=0.50)
+        quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.0)
         total_bits = 0.0
         total_weights = 0
         with torch.no_grad():

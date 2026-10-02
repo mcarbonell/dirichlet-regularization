@@ -1,0 +1,86 @@
+{
+  "std_fp32_ppl": 6.112303821078682,
+  "topo_fp32_ppl": 6.461524268679111,
+  "ed_std": 0.0061781140975654125,
+  "ed_topo": 0.0017241357127204537,
+  "sweep": [
+    {
+      "regime": "Ultra-Aggressive",
+      "r0": 0.08,
+      "r1": 0.22,
+      "r2": 0.5,
+      "bpp": 0.43,
+      "ratio": 74.4,
+      "std_ppl": 5274.18,
+      "topo_ppl": 2890.48,
+      "gain": 2383.71,
+      "delta_std": 5268.07,
+      "delta_topo": 2884.02
+    },
+    {
+      "regime": "Aggressive",
+      "r0": 0.1,
+      "r1": 0.3,
+      "r2": 0.75,
+      "bpp": 0.914,
+      "ratio": 35.0,
+      "std_ppl": 835.92,
+      "topo_ppl": 1117.65,
+      "gain": -281.73,
+      "delta_std": 829.8,
+      "delta_topo": 1111.18
+    },
+    {
+      "regime": "Calibrated TritQ",
+      "r0": 0.15,
+      "r1": 0.4,
+      "r2": 1.0,
+      "bpp": 1.638,
+      "ratio": 19.5,
+      "std_ppl": 73.75,
+      "topo_ppl": 66.5,
+      "gain": 7.26,
+      "delta_std": 67.64,
+      "delta_topo": 60.03
+    },
+    {
+      "regime": "Mid-Band",
+      "r0": 0.2,
+      "r1": 0.55,
+      "r2": 1.15,
+      "bpp": 2.181,
+      "ratio": 14.7,
+      "std_ppl": 30.1,
+      "topo_ppl": 23.08,
+      "gain": 7.02,
+      "delta_std": 23.99,
+      "delta_topo": 16.62
+    },
+    {
+      "regime": "High-Fidelity",
+      "r0": 0.3,
+      "r1": 0.7,
+      "r2": 1.3,
+      "bpp": 2.794,
+      "ratio": 11.5,
+      "std_ppl": 14.97,
+      "topo_ppl": 12.43,
+      "gain": 2.54,
+      "delta_std": 8.86,
+      "delta_topo": 5.97
+    },
+    {
+      "regime": "Conservative",
+      "r0": 0.45,
+      "r1": 0.9,
+      "r2": 1.41,
+      "bpp": 3.774,
+      "ratio": 8.5,
+      "std_ppl": 8.87,
+      "topo_ppl": 8.22,
+      "gain": 0.65,
+      "delta_std": 2.76,
+      "delta_topo": 1.75
+    }
+  ]
+}
