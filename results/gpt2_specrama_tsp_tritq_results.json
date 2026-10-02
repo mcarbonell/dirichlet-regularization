@@ -1,0 +1,53 @@
+{
+  "model": "gpt2-124m",
+  "base_fp32_ppl": 14.31327965692883,
+  "mean_raw_tv": 490852.5826822917,
+  "mean_perm_tv": 457280.9752604167,
+  "tv_reduction_pct": 6.839448055548791,
+  "mean_raw_ed": 0.03351370559539646,
+  "mean_perm_ed": 0.028880001744255424,
+  "ed_reduction_pct": 13.826295149461288,
+  "tsp_time_s": 29.957615613937378,
+  "regimes": [
+    {
+      "regime": "Calibrated TritQ",
+      "r0": 0.15,
+      "r1": 0.4,
+      "r2": 1.0,
+      "bpp": 1.632,
+      "native_ppl": 8055.96,
+      "tsp_ppl": 4374.83,
+      "advantage": 3681.13
+    },
+    {
+      "regime": "Mid-Band",
+      "r0": 0.2,
+      "r1": 0.55,
+      "r2": 1.15,
+      "bpp": 2.176,
+      "native_ppl": 3718.23,
+      "tsp_ppl": 3766.27,
+      "advantage": -48.04
+    },
+    {
+      "regime": "High-Fidelity",
+      "r0": 0.3,
+      "r1": 0.7,
+      "r2": 1.3,
+      "bpp": 2.788,
+      "native_ppl": 2942.13,
+      "tsp_ppl": 1146.87,
+      "advantage": 1795.26
+    },
+    {
+      "regime": "Conservative",
+      "r0": 0.45,
+      "r1": 0.9,
+      "r2": 1.41,
+      "bpp": 3.766,
+      "native_ppl": 3752.36,
+      "tsp_ppl": 373.71,
+      "advantage": 3378.65
+    }
+  ]
+}
