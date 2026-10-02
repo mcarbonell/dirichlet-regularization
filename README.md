@@ -212,7 +212,7 @@ dirichlet-regularization/
 ## Academic Paper Draft
 
 Read our complete publication manuscript:
-> 📄 [**"Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization for Sub-1.0 bpp Quantization and Zero-Copy Inference"**](paper/paper-draft.pdf)  
+> 📄 [**"Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization"**](paper/paper-draft.pdf)  
 > *Mario Raúl Carbonell Martínez (Independent Researcher)*  
 > 15 pages, LaTeX source and figures available in the [`paper/`](paper/) directory.
 
