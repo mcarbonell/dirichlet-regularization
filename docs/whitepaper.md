@@ -80,9 +80,9 @@ donde $\epsilon_{\text{harmonic}} \approx 2 \times 10^{-3}$.
 
 <p align="center">
   <img src="figures/fig1_weight_heatmaps.png" alt="Estructuras de Pesos: Baseline AdamW vs Regularización Dirichlet" width="90%">
-  <br>
-  <em><b>Figura 1: Estructuras Espaciales en Capas de Pesos (Patches 64x64).</b> Izquierda: La optimización estándar con AdamW deja los pesos en un estado de ruido blanco de alta frecuencia espacial sin correlación ($E_D = 0.0016$). Derecha: La regularización de Dirichlet auto-organiza las matrices en variedades corticales continuas y suaves ($E_D = 0.0001$, reducción del 94% en rugosidad).</em>
 </p>
+
+> **Figura 1: Estructuras Espaciales en Capas de Pesos (Patches 64x64).** Izquierda: La optimización estándar con AdamW deja los pesos en un estado de ruido blanco de alta frecuencia espacial sin correlación ($E_D = 0.0016$). Derecha: La regularización de Dirichlet auto-organiza las matrices en variedades corticales continuas y suaves ($E_D = 0.0001$, reducción del 94% en rugosidad).
 
 ### 1.3 Condensación Espectral en el Dominio 2D-DCT
 Aplicando la Transformada Discreta del Coseno ortonormal bidimensional (DCT-II):
@@ -97,9 +97,9 @@ Esto induce una concentración física superior al $72\%$–$96\%$ de la energí
 
 <p align="center">
   <img src="figures/fig2_dct_energy_spectra.png" alt="Condensación de Energía Espectral 2D-DCT" width="90%">
-  <br>
-  <em><b>Figura 2: Condensación Espectral 2D-DCT.</b> Comparativa de acumulación de energía de Frobenius en función del radio de frecuencia normalizado $\rho \in [0, \sqrt{2}]$ entre pesos estándar y regularizados por Dirichlet.</em>
 </p>
+
+> **Figura 2: Condensación Espectral 2D-DCT.** Comparativa de acumulación de energía de Frobenius en función del radio de frecuencia normalizado $\rho \in [0, \sqrt{2}]$ entre pesos estándar y regularizados por Dirichlet.
 
 ---
 

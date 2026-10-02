@@ -24,9 +24,9 @@ This one constraint has a profound consequence: it **concentrates spectral energ
 
 <p align="center">
   <img src="docs/figures/fig1_weight_heatmaps.png" alt="Spatial Weight Structures: Standard AdamW vs Dirichlet Regularization" width="90%">
-  <br>
-  <em><b>Figure 1: Spatial Weight Structures.</b> Left: Standard AdamW training leaves weights in an uncorrelated, high-frequency white noise state ($E_D = 0.0016$). Right: 2D Dirichlet Regularization forces weights into smooth, continuous cortical manifolds ($E_D = 0.0001$, a 94% reduction in spatial roughness) that pack over 72%–96% of variance into low-frequency DCT harmonics.</em>
 </p>
+
+> **Figure 1: Spatial Weight Structures.** Left: Standard AdamW training leaves weights in an uncorrelated, high-frequency white noise state ($E_D = 0.0016$). Right: 2D Dirichlet Regularization forces weights into smooth, continuous cortical manifolds ($E_D = 0.0001$, a 94% reduction in spatial roughness) that pack over 72%–96% of variance into low-frequency DCT harmonics.
 
 ---
 
@@ -50,9 +50,9 @@ This is the key: **smooth weight matrices have compressible spectra** — just l
 
 <p align="center">
   <img src="docs/figures/fig2_dct_energy_spectra.png" alt="2D-DCT Spectral Energy Compaction" width="90%">
-  <br>
-  <em><b>Figure 2: 2D-DCT Spectral Energy Compaction.</b> Cumulative spectral energy as a function of radial frequency radius $\rho \in [0, \sqrt{2}]$. Feedforward weights (left) and Attention weights (right). While standard AdamW exhibits linear/diagonal accumulation (flat white noise), Dirichlet regularization concentrates over 72%–96% of total Frobenius energy below the $\rho = 0.40$ quantization cutoff.</em>
 </p>
+
+> **Figure 2: 2D-DCT Spectral Energy Compaction.** Cumulative spectral energy as a function of radial frequency radius $\rho \in [0, \sqrt{2}]$. Feedforward weights (left) and Attention weights (right). While standard AdamW exhibits linear/diagonal accumulation (flat white noise), Dirichlet regularization concentrates over 72%–96% of total Frobenius energy below the $\rho = 0.40$ quantization cutoff.
 
 ---
 
@@ -123,17 +123,17 @@ The Dirichlet regularization principle is **architecture-agnostic**. It is not s
 
 <p align="center">
   <img src="docs/figures/v380_weight_heatmaps.png" alt="Macroscopic Cellular Weight Regularization" width="98%">
-  <br>
-  <em><b>Transition from Stochastic Noise to Smooth Cortical Manifolds:</b> Receptive weight patches across increasing Dirichlet surface tension ($\epsilon$) vs standard AdamW baseline (right). As spatial coupling increases, high-frequency salt-and-pepper noise dissolves into continuous, macroscopic functional bands.</em>
 </p>
+
+> **Transition from Stochastic Noise to Smooth Cortical Manifolds:** Receptive weight patches across increasing Dirichlet surface tension ($\epsilon$) vs standard AdamW baseline (right). As spatial coupling increases, high-frequency salt-and-pepper noise dissolves into continuous, macroscopic functional bands.
 
 ### Cross-Seed Manifold Alignment & Reproducibility
 
 <p align="center">
   <img src="docs/figures/v381_cross_seed_heatmaps.png" alt="Cross-Seed Alignment Heatmaps" width="98%">
-  <br>
-  <em><b>Cross-Seed Robustness:</b> Weight configurations across independent random initializations (Seed 42 vs Seed 100). Standard AdamW (right) yields uncorrelated, chaotic noise patterns, whereas Dirichlet and anchored regularizations induce reproducible, continuous topological geometry.</em>
 </p>
+
+> **Cross-Seed Robustness:** Weight configurations across independent random initializations (Seed 42 vs Seed 100). Standard AdamW (right) yields uncorrelated, chaotic noise patterns, whereas Dirichlet and anchored regularizations induce reproducible, continuous topological geometry.
 
 ---
 
@@ -143,9 +143,9 @@ As a concrete demonstration, we apply Dirichlet Regularization to autoregressive
 
 <p align="center">
   <img src="docs/figures/fig3_pareto_quantization.png" alt="Pareto Quantization Curve" width="80%">
-  <br>
-  <em><b>Figure 3: Dirichlet Regularization Pareto Tradeoff Curve.</b> 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0.0, 0.01, 5.0, 15.0, 30.0\}$) on TinyStories 10M. Increasing spatial surface tension monotonically drives down weight roughness $E_D$ (blue), which directly causes a monotonic drop in quantized perplexity under 0.945 bpp compression (red).</em>
 </p>
+
+> **Figure 3: Dirichlet Regularization Pareto Tradeoff Curve.** 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0.0, 0.01, 5.0, 15.0, 30.0\}$) on TinyStories 10M. Increasing spatial surface tension monotonically drives down weight roughness $E_D$ (blue), which directly causes a monotonic drop in quantized perplexity under 0.945 bpp compression (red).
 
 ### The Falsification Test
 
