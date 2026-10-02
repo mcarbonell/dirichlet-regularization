@@ -7,8 +7,9 @@ Implements standard quantization and compression controls demanded in peer revie
 """
 
 import math
+from typing import Optional, Tuple
+
 import torch
-from typing import Tuple, Optional
 
 
 def random_orthogonal_transform_2d(

@@ -22,9 +22,8 @@ Usage:
 
 import math
 import os
-import sys
 import time
-from typing import Dict, Any, Tuple, Optional
+from typing import Any, Dict
 
 import modal
 
@@ -71,18 +70,17 @@ def run_training(
     eval_interval: int = 25,
 ) -> Dict[str, Any]:
     import copy
+
     import torch
     import torch.nn as nn
     import torch.optim as optim
     from datasets import load_dataset
     from tokenizers import ByteLevelBPETokenizer
-    from tokenizers.processors import BertProcessing
 
-    import dreg
     from dreg import (
-        TopographicTransformer,
-        TopographicConfig,
         Base3TritQuantizer,
+        TopographicConfig,
+        TopographicTransformer,
         TritQFormat,
         dct2d,
         idct2d,
@@ -281,6 +279,7 @@ def run_training(
     # 6b. Qualitative Sample Generation
     try:
         print("\n[*] Generating qualitative text sample...")
+        sample_prompt = "Once upon a time, there was a little girl named Lily."
         enc = tokenizer.encode(sample_prompt)
         prompt_ids = torch.tensor([enc.ids if hasattr(enc, "ids") else enc], dtype=torch.long, device=device)
         sample_out = model.generate(prompt_ids, max_new_tokens=50, temperature=0.7)

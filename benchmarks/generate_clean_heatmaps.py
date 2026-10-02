@@ -8,12 +8,14 @@ Produces:
 
 import os
 import sys
+
+import matplotlib
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-import matplotlib
+from torchvision import datasets, transforms
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,7 +24,7 @@ import numpy as np
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT_DIR)
 
-from dreg import dirichlet_energy_2d, dct2d, idct2d
+from dreg import dirichlet_energy_2d  # noqa: E402
 
 
 class TopoMLP(nn.Module):

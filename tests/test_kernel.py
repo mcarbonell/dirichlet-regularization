@@ -2,20 +2,21 @@
 Tests for native C Spectral DMA Kernel and Python numerical parity.
 """
 
-import os
 import ctypes
-import pytest
+import os
+
 import numpy as np
+import pytest
 import torch
 
 from dreg.quantization import Base3TritQuantizer
-from dreg.spectral import dct2d, idct2d, dct_matrix_1d
+from dreg.spectral import dct2d, dct_matrix_1d, idct2d
 
 
 def get_kernel_lib():
     script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     kernel_dir = os.path.join(script_dir, "kernel")
-    
+
     # Try finding existing compiled library
     candidates = [
         os.path.join(kernel_dir, "spectral_dma_kernel.dll"),
@@ -23,7 +24,7 @@ def get_kernel_lib():
         os.path.join(kernel_dir, "libspectral_dma_kernel.dylib"),
     ]
     lib_path = next((p for p in candidates if os.path.exists(p)), None)
-    
+
     if lib_path is None:
         try:
             from kernel.build_kernel import build

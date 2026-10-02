@@ -7,12 +7,10 @@ import torch
 import torch.nn as nn
 
 from dreg.model import (
-    TopographicTransformer,
+    TopographicAttention,
     TopographicConfig,
     TopographicLinear,
-    TopographicMLP,
-    TopographicAttention,
-    TopographicBlock,
+    TopographicTransformer,
 )
 
 

@@ -17,6 +17,7 @@ Measures:
 """
 
 import os
+
 import modal
 
 app = modal.App("dreg-quantization-sota")
@@ -44,13 +45,14 @@ CHECKPOINT_DIR = "/root/checkpoints"
 )
 def run_quantization_benchmark():
     import copy
+
     import torch
-    import torch.nn.functional as F
     from datasets import load_dataset
     from tokenizers import Tokenizer
-    from dreg.model import TopographicTransformer, TopographicConfig
-    from dreg.spectral import dct2d, idct2d
+
+    from dreg.model import TopographicConfig, TopographicTransformer
     from dreg.quantization import Base3TritQuantizer
+    from dreg.spectral import dct2d, idct2d
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[*] Running SOTA quantization comparison on: {device}")
@@ -222,5 +224,5 @@ def run_quantization_benchmark():
 
 @app.local_entrypoint()
 def main():
-    res = run_quantization_benchmark.remote()
+    _ = run_quantization_benchmark.remote()
     print("\n[+] SOTA Benchmark completed successfully.")

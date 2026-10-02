@@ -6,10 +6,10 @@ to decouple inverse transform arithmetic O(B^3) from model width D.
 """
 
 import math
-import torch
-from typing import Tuple, Dict
 from collections import OrderedDict
+from typing import Tuple
 
+import torch
 
 _DCT_CACHE: OrderedDict[Tuple[int, torch.device, torch.dtype], torch.Tensor] = OrderedDict()
 _DCT_CACHE_MAXSIZE: int = 32

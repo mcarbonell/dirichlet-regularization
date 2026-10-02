@@ -6,9 +6,9 @@ using gcc, clang, or MSVC cl.
 """
 
 import os
-import sys
-import subprocess
 import platform
+import subprocess
+import sys
 
 
 def build():

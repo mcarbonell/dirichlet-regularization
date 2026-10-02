@@ -10,6 +10,7 @@ Runs on Modal (or locally if checkpoints exist) to:
 """
 
 import os
+
 import modal
 
 app = modal.App("dreg-generate-figures")
@@ -35,15 +36,15 @@ CHECKPOINT_DIR = "/root/checkpoints"
     timeout=600,
 )
 def generate_all_artifacts():
-    import torch
-    import numpy as np
     import matplotlib
+    import numpy as np
+    import torch
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from tokenizers import Tokenizer
-    from dreg.model import TopographicTransformer, TopographicConfig
-    from dreg.spectral import dct2d, idct2d
-    from dreg.topology import dirichlet_energy_2d
+
+    from dreg.model import TopographicConfig, TopographicTransformer
+    from dreg.spectral import dct2d
 
     print("==============================================================================")
     print(" GENERATING PUBLICATION ARTIFACTS & VISUALIZATIONS")
@@ -96,7 +97,7 @@ def generate_all_artifacts():
     for p in prompts:
         enc = tokenizer.encode(p)
         ids = torch.tensor([enc.ids if hasattr(enc, "ids") else enc], dtype=torch.long)
-        
+
         with torch.no_grad():
             out_std = std_model.generate(ids, max_new_tokens=60, temperature=0.7)
             out_topo = topo_model.generate(ids, max_new_tokens=60, temperature=0.7)
@@ -196,7 +197,6 @@ def generate_all_artifacts():
     lambdas = [0.0, 0.01, 5.0, 15.0, 30.0]
     ed_vals = [0.004225, 0.004251, 0.003382, 0.002427, 0.001924]
     quant_ppl_2k = [46.60, 47.95, 44.80, 43.26, 39.80]
-    fp32_ppl_2k = [10.48, 10.44, 10.62, 10.81, 10.98]
 
     fig, ax_p1 = plt.subplots(figsize=(8, 5))
     color = "tab:blue"
@@ -213,7 +213,7 @@ def generate_all_artifacts():
     ax_p2.tick_params(axis="y", labelcolor=color2)
 
     lines = line1 + line2
-    labels = [l.get_label() for l in lines]
+    labels = [line_obj.get_label() for line_obj in lines]
     ax_p1.legend(lines, labels, loc="center right")
     plt.title("Figure 3: Dirichlet Regularization Pareto Tradeoff Curve", fontsize=12, fontweight="bold")
     plt.tight_layout()

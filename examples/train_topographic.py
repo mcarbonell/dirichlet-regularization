@@ -5,12 +5,13 @@ Demonstrates end-to-end training of a causal Transformer where all linear
 weights are constrained to a continuous 2D cortical lattice.
 """
 
-import time
 import math
+import time
+
 import torch
 import torch.optim as optim
 
-from dreg import TopographicTransformer, TopographicConfig, DirichletLoss
+from dreg import TopographicConfig, TopographicTransformer
 
 
 def get_synthetic_data(vocab_size=256, seq_len=128, num_samples=1000):

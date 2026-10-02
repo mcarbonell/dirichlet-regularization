@@ -23,6 +23,9 @@ build/
 data/
 .kilo/
 .pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
 
 # Local docs
 docs/private/

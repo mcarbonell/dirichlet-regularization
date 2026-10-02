@@ -5,12 +5,12 @@ Tests for quantization module: Base-3 Trit quantization and .tritq format.
 import os
 import struct
 import tempfile
-import pytest
+
 import numpy as np
+import pytest
 import torch
 
 from dreg.quantization import Base3TritQuantizer, TritQFormat
-from dreg.spectral import dct2d, idct2d
 
 
 class TestBase3TritLUT:

@@ -10,18 +10,18 @@ Regularization repository in a single reproducible execution:
   5. Executive verification summary report
 """
 
-import sys
-import os
 import subprocess
+import sys
 import time
-import torch
+
 import numpy as np
+import torch
 
 from dreg import (
     Base3TritQuantizer,
     dct2d,
-    idct2d,
     dirichlet_energy_2d,
+    idct2d,
     random_orthogonal_transform_2d,
     svd_low_rank_approximation,
 )
@@ -50,7 +50,7 @@ def step_1_run_test_suite():
 def step_2_verify_c_kernel_parity():
     print_header("[Step 2/4] Verifying C DMA Kernel Mathematical Parity...")
     try:
-        from examples.benchmark_c_dma import load_c_kernel, dct_matrix_1d
+        from examples.benchmark_c_dma import dct_matrix_1d, load_c_kernel
         c_lib = load_c_kernel()
         c_lib.c_spectral_init()
 
@@ -166,7 +166,7 @@ def step_4_measure_baselines_comparison():
 
     # Baseline 1: Random orthogonal rotation / Hadamard-like control
     w_rot, _, _ = random_orthogonal_transform_2d(w, seed=42)
-    spec_rot = dct2d(w_rot)
+    _ = dct2d(w_rot)
     e_d_rot = dirichlet_energy_2d(w_rot, normalization="edges").item()
 
     # Baseline 2: SVD truncation (matched to ~68x compression)
@@ -191,7 +191,7 @@ def main():
     t_total = time.perf_counter() - t_start
 
     print_header("REPRODUCIBILITY VERIFICATION SUMMARY")
-    print(f"  1. Unit Tests Suite (71 tests):        {'[PASSED]' if ok_tests else '[FAILED]'}")
+    print(f"  1. Unit Tests Suite (79 tests):        {'[PASSED]' if ok_tests else '[FAILED]'}")
     print(f"  2. C DMA Kernel Precision Parity:      {'[PASSED] (diff=' + f'{c_diff:.2e})' if ok_kernel else '[FAILED]'}")
     print(f"  3. 2D-DCT Spectral Compaction Check:   {'[PASSED] (~6x energy retention)' if ok_spectral else '[FAILED]'}")
     print(f"  4. Hadamard & SVD Baseline Controls:   {'[PASSED]' if ok_baselines else '[FAILED]'}")

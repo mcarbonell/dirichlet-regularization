@@ -2,10 +2,9 @@
 Tests for spectral module: DCT/IDCT transforms and BlockDCTTiler.
 """
 
-import pytest
 import torch
 
-from dreg.spectral import dct_matrix_1d, dct2d, idct2d, BlockDCTTiler
+from dreg.spectral import BlockDCTTiler, dct2d, dct_matrix_1d, idct2d
 
 
 class TestDCTMatrix:

@@ -2,12 +2,18 @@
 Tests for topology module: Dirichlet energy and grid dimension utilities.
 """
 
-import math
 import pytest
 import torch
 import torch.nn as nn
 
-from dreg.topology import dirichlet_energy_2d, get_grid_dimensions, DirichletLoss
+from dreg.topology import (
+    CosineDirichletScheduler,
+    DirichletLoss,
+    DirichletScheduler,
+    StepCooldownScheduler,
+    dirichlet_energy_2d,
+    get_grid_dimensions,
+)
 
 
 class TestGetGridDimensions:
@@ -140,3 +146,95 @@ class TestDirichletLoss:
         loss = loss_fn(model.modules())
         assert loss.item() > 0.0
         assert torch.isfinite(loss)
+
+
+class TestDirichletScheduler:
+    """Tests for dynamic Dirichlet regularization schedulers and annealing."""
+
+    def test_init_validation(self):
+        loss_fn = DirichletLoss(weight_decay=0.01)
+        with pytest.raises(ValueError, match="total_steps must be positive"):
+            DirichletScheduler(loss_fn, total_steps=0)
+        with pytest.raises(ValueError, match="cooldown_ratio must be in"):
+            DirichletScheduler(loss_fn, total_steps=100, cooldown_ratio=1.5)
+        with pytest.raises(ValueError, match="Unknown schedule"):
+            DirichletScheduler(loss_fn, total_steps=100, schedule="unsupported_schedule")
+
+    def test_constant_schedule(self):
+        loss_fn = DirichletLoss(weight_decay=0.05)
+        sched = DirichletScheduler(loss_fn, total_steps=100, schedule="constant")
+        for step in [0, 50, 99, 150]:
+            assert sched.get_weight_decay(step) == pytest.approx(0.05)
+
+    def test_step_cooldown_schedule(self):
+        loss_fn = DirichletLoss(weight_decay=0.02)
+        # 100 total steps with 20% cooldown -> steps 0..79: 0.02, steps 80..100: 0.0
+        sched = DirichletScheduler(
+            loss_fn, total_steps=100, schedule="step_cooldown", cooldown_ratio=0.20, min_weight_decay=0.0
+        )
+        assert sched.get_weight_decay(0) == pytest.approx(0.02)
+        assert sched.get_weight_decay(79) == pytest.approx(0.02)
+        assert sched.get_weight_decay(80) == pytest.approx(0.0)
+        assert sched.get_weight_decay(99) == pytest.approx(0.0)
+
+    def test_cosine_schedule(self):
+        loss_fn = DirichletLoss(weight_decay=0.01)
+        sched = DirichletScheduler(loss_fn, total_steps=100, schedule="cosine", min_weight_decay=0.001)
+        # At t=0: initial_weight_decay
+        assert sched.get_weight_decay(0) == pytest.approx(0.01)
+        # At midpoint t=50: exactly half-way between 0.01 and 0.001
+        expected_mid = 0.001 + (0.01 - 0.001) * 0.5
+        assert sched.get_weight_decay(50) == pytest.approx(expected_mid)
+        # At t=100: min_weight_decay
+        assert sched.get_weight_decay(100) == pytest.approx(0.001)
+        # Beyond t=100: stays at min_weight_decay
+        assert sched.get_weight_decay(120) == pytest.approx(0.001)
+
+    def test_linear_schedule(self):
+        loss_fn = DirichletLoss(weight_decay=0.1)
+        sched = DirichletScheduler(loss_fn, total_steps=100, schedule="linear", min_weight_decay=0.0)
+        assert sched.get_weight_decay(0) == pytest.approx(0.1)
+        assert sched.get_weight_decay(50) == pytest.approx(0.05)
+        assert sched.get_weight_decay(100) == pytest.approx(0.0)
+        assert sched.get_weight_decay(110) == pytest.approx(0.0)
+
+    def test_step_updates_loss_weight_decay(self):
+        loss_fn = DirichletLoss(weight_decay=0.02)
+        sched = StepCooldownScheduler(loss_fn, total_steps=10, cooldown_ratio=0.30)
+        # Cooldown starts at step int(0.70 * 10) = 7
+        assert loss_fn.weight_decay == pytest.approx(0.02)
+
+        for _ in range(7):
+            val = sched.step()
+            assert val == pytest.approx(0.02)
+            assert loss_fn.weight_decay == pytest.approx(0.02)
+
+        val = sched.step()  # step 7 -> cooldown
+        assert val == pytest.approx(0.0)
+        assert loss_fn.weight_decay == pytest.approx(0.0)
+
+    def test_explicit_step_parameter(self):
+        loss_fn = DirichletLoss(weight_decay=0.02)
+        sched = CosineDirichletScheduler(loss_fn, total_steps=100)
+        val = sched.step(step=100)
+        assert val == pytest.approx(0.0)
+        assert loss_fn.weight_decay == pytest.approx(0.0)
+        assert sched.current_step == 101
+
+    def test_state_dict_roundtrip(self):
+        loss_fn = DirichletLoss(weight_decay=0.02)
+        sched = CosineDirichletScheduler(loss_fn, total_steps=100, min_weight_decay=0.002)
+        sched.step()
+        sched.step()
+        state = sched.state_dict()
+
+        loss_fn2 = DirichletLoss(weight_decay=0.5)
+        sched2 = CosineDirichletScheduler(loss_fn2, total_steps=10)
+        sched2.load_state_dict(state)
+
+        assert sched2.current_step == 2
+        assert sched2.total_steps == 100
+        assert sched2.initial_weight_decay == pytest.approx(0.02)
+        assert sched2.min_weight_decay == pytest.approx(0.002)
+        assert loss_fn2.weight_decay == pytest.approx(sched.get_weight_decay(2))
+

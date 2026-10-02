@@ -21,12 +21,13 @@ Usage:
 
 import argparse
 import copy
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 import dreg
-from dreg import DirichletLoss, dct2d, idct2d, Base3TritQuantizer
+from dreg import Base3TritQuantizer, DirichletLoss, dct2d, idct2d
 
 
 class SimpleMLP(nn.Module):

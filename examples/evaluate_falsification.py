@@ -8,16 +8,17 @@ Both models undergo identical 4-band Base-3 Quantum Trit Quantization.
 Metrics, bit-rates, and status verdicts are computed dynamically without hardcoded labels.
 """
 
-import math
-import copy
 import argparse
+import copy
+import math
+
 import torch
 import torch.optim as optim
 
 from dreg import (
-    TopographicTransformer,
-    TopographicConfig,
     Base3TritQuantizer,
+    TopographicConfig,
+    TopographicTransformer,
     dct2d,
     idct2d,
 )

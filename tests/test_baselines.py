@@ -4,6 +4,7 @@ Tests for comparative baselines: Random Orthogonal Rotations and SVD truncation.
 
 import pytest
 import torch
+
 from dreg.baselines import random_orthogonal_transform_2d, svd_low_rank_approximation
 
 

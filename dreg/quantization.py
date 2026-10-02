@@ -9,9 +9,10 @@ Implements hierarchical 4-band spectral quantization and base-3 packaging:
 
 import json
 import struct
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import torch
-from typing import Dict, Any, Tuple, Optional
 
 
 class Base3TritQuantizer:
@@ -92,7 +93,7 @@ class Base3TritQuantizer:
         rem = (5 - (len(trits) % 5)) % 5
         if rem > 0:
             trits = torch.cat([trits, torch.ones(rem, dtype=torch.int64, device=spec.device)])  # pad with zeros (code 1)
-        
+
         t0 = trits[0::5]
         t1 = trits[1::5] * 3
         t2 = trits[2::5] * 9

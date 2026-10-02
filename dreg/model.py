@@ -7,13 +7,13 @@ topology, SwiGLU FFNs, and integrated Dirichlet loss accumulation.
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, List, Dict, Any
+from typing import List, Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .topology import dirichlet_energy_2d, get_grid_dimensions
-from .spectral import dct2d, idct2d, BlockDCTTiler
+from .topology import dirichlet_energy_2d
 
 
 @dataclass

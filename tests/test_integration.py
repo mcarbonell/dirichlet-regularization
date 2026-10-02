@@ -9,21 +9,20 @@ Tests that verify the full pipeline works correctly:
 
 import copy
 import math
+
 import pytest
 import torch
-import torch.nn as nn
 import torch.optim as optim
 
 from dreg import (
-    TopographicTransformer,
+    Base3TritQuantizer,
+    BlockDCTTiler,
     TopographicConfig,
     TopographicLinear,
-    Base3TritQuantizer,
-    DirichletLoss,
+    TopographicTransformer,
     dct2d,
-    idct2d,
-    BlockDCTTiler,
     dirichlet_energy_2d,
+    idct2d,
 )
 
 

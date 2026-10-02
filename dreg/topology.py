@@ -6,9 +6,10 @@ to eliminate permutation invariance and concentrate energy into low spatial freq
 """
 
 import math
+from typing import Iterable, Optional, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional, Iterable
 
 
 def get_grid_dimensions(n: int) -> Tuple[int, int]:
@@ -106,3 +107,147 @@ class DirichletLoss(nn.Module):
         if count == 0:
             return total_energy
         return self.weight_decay * (total_energy / count)
+
+
+class DirichletScheduler:
+    """
+    Base dynamic schedule manager for Dirichlet loss weight_decay (surface tension).
+    Allows scheduling lambda_topo over training steps (e.g. cosine annealing, step cooldown).
+    """
+
+    def __init__(
+        self,
+        loss_fn: DirichletLoss,
+        total_steps: int,
+        schedule: str = "cosine",
+        initial_weight_decay: Optional[float] = None,
+        min_weight_decay: float = 0.0,
+        cooldown_ratio: float = 0.20,
+    ):
+        if total_steps <= 0:
+            raise ValueError(f"total_steps must be positive, got {total_steps}")
+        if not (0.0 <= cooldown_ratio <= 1.0):
+            raise ValueError(f"cooldown_ratio must be in [0.0, 1.0], got {cooldown_ratio}")
+
+        self.loss_fn = loss_fn
+        self.total_steps = total_steps
+        self.schedule = schedule.lower()
+        self.initial_weight_decay = (
+            float(initial_weight_decay) if initial_weight_decay is not None else float(loss_fn.weight_decay)
+        )
+        self.min_weight_decay = float(min_weight_decay)
+        self.cooldown_ratio = float(cooldown_ratio)
+        self.current_step = 0
+
+        valid_schedules = {"constant", "step_cooldown", "cosine", "linear"}
+        if self.schedule not in valid_schedules:
+            raise ValueError(f"Unknown schedule: {self.schedule}. Supported: {sorted(valid_schedules)}")
+
+    def get_weight_decay(self, step: Optional[int] = None) -> float:
+        """Computes the scheduled weight_decay for the specified step."""
+        t = self.current_step if step is None else step
+        if t < 0:
+            t = 0
+
+        l0 = self.initial_weight_decay
+        l_min = self.min_weight_decay
+        t_total = self.total_steps
+
+        if self.schedule == "constant":
+            return l0
+        elif self.schedule == "step_cooldown":
+            cooldown_start = int((1.0 - self.cooldown_ratio) * t_total)
+            return l0 if t < cooldown_start else l_min
+        elif self.schedule == "cosine":
+            if t >= t_total:
+                return l_min
+            progress = min(max(t / t_total, 0.0), 1.0)
+            cosine_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
+            return l_min + (l0 - l_min) * cosine_factor
+        elif self.schedule == "linear":
+            if t >= t_total:
+                return l_min
+            progress = min(max(t / t_total, 0.0), 1.0)
+            return l0 + (l_min - l0) * progress
+        return l0
+
+    def step(self, step: Optional[int] = None) -> float:
+        """
+        Advances the scheduler by one step (or jumps to specified step),
+        updates loss_fn.weight_decay, and returns the new value.
+        """
+        if step is not None:
+            self.current_step = step
+        wd = self.get_weight_decay(self.current_step)
+        self.loss_fn.weight_decay = wd
+        if step is None:
+            self.current_step += 1
+        else:
+            self.current_step = step + 1
+        return wd
+
+    def state_dict(self) -> dict:
+        return {
+            "current_step": self.current_step,
+            "total_steps": self.total_steps,
+            "initial_weight_decay": self.initial_weight_decay,
+            "min_weight_decay": self.min_weight_decay,
+            "cooldown_ratio": self.cooldown_ratio,
+            "schedule": self.schedule,
+        }
+
+    def load_state_dict(self, state_dict: dict) -> None:
+        self.current_step = state_dict["current_step"]
+        self.total_steps = state_dict["total_steps"]
+        self.initial_weight_decay = state_dict["initial_weight_decay"]
+        self.min_weight_decay = state_dict["min_weight_decay"]
+        self.cooldown_ratio = state_dict.get("cooldown_ratio", 0.20)
+        self.schedule = state_dict["schedule"]
+        self.loss_fn.weight_decay = self.get_weight_decay(self.current_step)
+
+
+class StepCooldownScheduler(DirichletScheduler):
+    """
+    Convenience wrapper for two-stage step cooldown annealing:
+    lambda(t) = lambda_0 for t < (1 - cooldown_ratio) * total_steps, else min_weight_decay.
+    """
+
+    def __init__(
+        self,
+        loss_fn: DirichletLoss,
+        total_steps: int,
+        cooldown_ratio: float = 0.20,
+        initial_weight_decay: Optional[float] = None,
+        min_weight_decay: float = 0.0,
+    ):
+        super().__init__(
+            loss_fn=loss_fn,
+            total_steps=total_steps,
+            schedule="step_cooldown",
+            initial_weight_decay=initial_weight_decay,
+            min_weight_decay=min_weight_decay,
+            cooldown_ratio=cooldown_ratio,
+        )
+
+
+class CosineDirichletScheduler(DirichletScheduler):
+    """
+    Convenience wrapper for smooth half-cosine decay annealing:
+    lambda(t) = lambda_min + 0.5 * (lambda_0 - lambda_min) * (1 + cos(pi * t / T))
+    """
+
+    def __init__(
+        self,
+        loss_fn: DirichletLoss,
+        total_steps: int,
+        initial_weight_decay: Optional[float] = None,
+        min_weight_decay: float = 0.0,
+    ):
+        super().__init__(
+            loss_fn=loss_fn,
+            total_steps=total_steps,
+            schedule="cosine",
+            initial_weight_decay=initial_weight_decay,
+            min_weight_decay=min_weight_decay,
+        )
+
