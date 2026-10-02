@@ -17,8 +17,6 @@ import time
 import torch
 import numpy as np
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from dreg import (
     Base3TritQuantizer,
     dct2d,
@@ -193,7 +191,7 @@ def main():
     t_total = time.perf_counter() - t_start
 
     print_header("REPRODUCIBILITY VERIFICATION SUMMARY")
-    print(f"  1. Unit Tests Suite (65 tests):        {'[PASSED]' if ok_tests else '[FAILED]'}")
+    print(f"  1. Unit Tests Suite (71 tests):        {'[PASSED]' if ok_tests else '[FAILED]'}")
     print(f"  2. C DMA Kernel Precision Parity:      {'[PASSED] (diff=' + f'{c_diff:.2e})' if ok_kernel else '[FAILED]'}")
     print(f"  3. 2D-DCT Spectral Compaction Check:   {'[PASSED] (~6x energy retention)' if ok_spectral else '[FAILED]'}")
     print(f"  4. Hadamard & SVD Baseline Controls:   {'[PASSED]' if ok_baselines else '[FAILED]'}")

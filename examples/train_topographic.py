@@ -5,15 +5,10 @@ Demonstrates end-to-end training of a causal Transformer where all linear
 weights are constrained to a continuous 2D cortical lattice.
 """
 
-import sys
-import os
 import time
 import math
 import torch
 import torch.optim as optim
-
-# Add root directory to sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dreg import TopographicTransformer, TopographicConfig, DirichletLoss
 

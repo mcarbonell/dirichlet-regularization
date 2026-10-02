@@ -21,14 +21,9 @@ Usage:
 
 import argparse
 import copy
-import os
-import sys
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-
-# Add root directory to sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import dreg
 from dreg import DirichletLoss, dct2d, idct2d, Base3TritQuantizer

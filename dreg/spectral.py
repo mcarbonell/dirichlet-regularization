@@ -8,9 +8,11 @@ to decouple inverse transform arithmetic O(B^3) from model width D.
 import math
 import torch
 from typing import Tuple, Dict
+from collections import OrderedDict
 
 
-_DCT_CACHE: Dict[Tuple[int, torch.device, torch.dtype], torch.Tensor] = {}
+_DCT_CACHE: OrderedDict[Tuple[int, torch.device, torch.dtype], torch.Tensor] = OrderedDict()
+_DCT_CACHE_MAXSIZE: int = 32
 
 
 def dct_matrix_1d(n: int, device: torch.device = torch.device("cpu"), dtype: torch.dtype = torch.float32) -> torch.Tensor:
@@ -18,17 +20,26 @@ def dct_matrix_1d(n: int, device: torch.device = torch.device("cpu"), dtype: tor
     Constructs the orthonormal DCT-II basis matrix of size (n, n):
         D_{k, i} = sqrt(2/n) * cos(pi * (2i + 1) * k / (2n)),  k > 0
         D_{0, i} = sqrt(1/n)
+
+    Uses vectorized construction and a bounded LRU cache (max 32 entries).
     """
     key = (n, device, dtype)
     if key in _DCT_CACHE:
+        _DCT_CACHE.move_to_end(key)
         return _DCT_CACHE[key]
 
-    d = torch.zeros((n, n), device=device, dtype=dtype)
-    i = torch.arange(n, device=device, dtype=dtype)
-    for k in range(n):
-        scale = math.sqrt(1.0 / n) if k == 0 else math.sqrt(2.0 / n)
-        d[k, :] = scale * torch.cos(math.pi * (2.0 * i + 1.0) * k / (2.0 * n))
+    # Fully vectorized construction via broadcasting (no Python loop)
+    k = torch.arange(n, device=device, dtype=dtype).unsqueeze(1)  # (n, 1)
+    i = torch.arange(n, device=device, dtype=dtype).unsqueeze(0)  # (1, n)
+    d = torch.cos(math.pi * (2.0 * i + 1.0) * k / (2.0 * n))
 
+    # Apply orthonormal scaling: sqrt(1/n) for k=0, sqrt(2/n) for k>0
+    d[0, :] *= math.sqrt(1.0 / n)
+    d[1:, :] *= math.sqrt(2.0 / n)
+
+    # Bounded cache with LRU eviction
+    if len(_DCT_CACHE) >= _DCT_CACHE_MAXSIZE:
+        _DCT_CACHE.popitem(last=False)
     _DCT_CACHE[key] = d
     return d
 

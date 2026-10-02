@@ -8,7 +8,6 @@ Implements hierarchical 4-band spectral quantization and base-3 packaging:
 """
 
 import json
-import ast
 import struct
 import numpy as np
 import torch
@@ -240,8 +239,11 @@ class TritQFormat:
             cfg_str = f.read(cfg_len).decode("utf-8")
             try:
                 header_meta = json.loads(cfg_str)
-            except Exception:
-                header_meta = ast.literal_eval(cfg_str)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid .tritq header: expected JSON metadata, got unparseable content. "
+                    f"JSON error: {e}"
+                ) from e
 
             if isinstance(header_meta, dict) and "config" in header_meta:
                 config_dict = header_meta["config"]

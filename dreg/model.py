@@ -112,6 +112,10 @@ class TopographicTransformer(nn.Module):
         self.pos_emb = nn.Parameter(torch.zeros(1, cfg.max_seq_len, cfg.d_model))
         self.blocks = nn.ModuleList([TopographicBlock(cfg) for _ in range(cfg.n_layers)])
         self.ln_f = nn.LayerNorm(cfg.d_model)
+        # NOTE: lm_head intentionally uses standard nn.Linear, not TopographicLinear.
+        # Applying Dirichlet smoothness to the vocabulary projection would constrain
+        # the logit geometry, forcing semantically unrelated tokens with adjacent indices
+        # to share similar output weights and degrading generation quality.
         self.lm_head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
 
         nn.init.normal_(self.pos_emb, std=0.02)

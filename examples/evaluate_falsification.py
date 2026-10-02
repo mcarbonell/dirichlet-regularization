@@ -8,15 +8,11 @@ Both models undergo identical 4-band Base-3 Quantum Trit Quantization.
 Metrics, bit-rates, and status verdicts are computed dynamically without hardcoded labels.
 """
 
-import sys
-import os
 import math
 import copy
 import argparse
 import torch
 import torch.optim as optim
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dreg import (
     TopographicTransformer,

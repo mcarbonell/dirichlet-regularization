@@ -6,14 +6,12 @@ double-buffering (Ping-Pong buffers), verifying bit-exact mathematical match (0.
 and measuring tokens/second throughput on CPU.
 """
 
-import sys
 import os
 import time
 import ctypes
 import numpy as np
 import torch
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dreg.spectral import dct_matrix_1d, dct2d, idct2d
 from dreg.quantization import Base3TritQuantizer
 

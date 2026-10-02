@@ -24,8 +24,10 @@ data/
 .kilo/
 .pytest_cache/
 
+# Local docs
 docs/private/
 docs/attention-neuron/
+docs/auditoria*
 
 # LaTeX build files
 *.aux

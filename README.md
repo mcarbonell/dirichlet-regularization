@@ -6,7 +6,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-red.svg)](https://pytorch.org/)
 [![CI](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml/badge.svg)](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-57_passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-71_passed-brightgreen.svg)](tests/)
 [![Paper Draft](https://img.shields.io/badge/Paper-Draft%20(PDF)-purple.svg)](paper/paper-draft.pdf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -194,7 +194,7 @@ dirichlet-regularization/
 │   ├── paper-draft.tex          # LaTeX source
 │   ├── references.bib           # BibTeX references
 │   └── figures/                 # Publication figures
-├── tests/                       # 57 pytest tests
+├── tests/                       # 71 pytest tests
 ├── docs/
 │   ├── whitepaper.md            # Consolidated technical whitepaper
 │   └── ROADMAP.md               # Development roadmap
