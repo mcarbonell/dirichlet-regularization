@@ -189,10 +189,13 @@ dirichlet-regularization/
 │   └── Makefile
 ├── examples/
 │   ├── train_topographic.py     # Train a Transformer with Dirichlet pinning
+│   ├── train_multiseed_sweep.py # Multi-seed validation with mean ± std & annealing
+│   ├── train_gpt2_dirichlet.py  # Fine-tune GPT-2 124M with Dirichlet regularization
+│   ├── evaluate_pareto_curve.py # Full Pareto rate-distortion frontier (bpp vs PPL)
 │   ├── evaluate_falsification.py # Reproduce the falsification experiment
 │   └── benchmark_c_dma.py       # Benchmark native C kernel throughput
 ├── paper/
-│   ├── paper-draft.pdf          # Full academic manuscript (12 pages, PDF)
+│   ├── paper-draft.pdf          # Full academic manuscript (15 pages, PDF)
 │   ├── paper-draft.tex          # LaTeX source
 │   ├── references.bib           # BibTeX references
 │   └── figures/                 # Publication figures
@@ -211,7 +214,7 @@ dirichlet-regularization/
 Read our complete publication manuscript:
 > 📄 [**"Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization for Sub-1.0 bpp Quantization and Zero-Copy Inference"**](paper/paper-draft.pdf)  
 > *Mario Raúl Carbonell Martínez (Independent Researcher)*  
-> 12 pages, LaTeX source and figures available in the [`paper/`](paper/) directory.
+> 15 pages, LaTeX source and figures available in the [`paper/`](paper/) directory.
 
 ---
 
