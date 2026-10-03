@@ -3,8 +3,11 @@ Base-3 Quantum Trit Quantization & .tritq Binary Serialization
 =============================================================
 Implements hierarchical 4-band spectral quantization and base-3 packaging:
   - 5 balanced trits {-1, 0, +1} packed into 1 byte (3^5 = 243 <= 256) -> 1.60 bits/trit.
-  - Achieves extreme sub-1.0 bpp compression (~0.47 bpp / 68x linear compression at
-    default radii r0=0.10, r1=0.25, r2=0.50), dynamically calculated per matrix geometry.
+  - Effective bpp depends on matrix geometry (M×N) and quantizer radii.
+    Canonical defaults r0=0.10, r1=0.25, r2=0.50 give:
+      · Small matrices (e.g. 96×96, falsification) ≈ 0.47 bpp / ~68×
+      · TinyStories-10M (e.g. 256×256 / 256×1024) ≈ 0.94–1.64 bpp / ~19–34×
+    See README Table “bpp ↔ radii” and paper §3.3 for the full rate map.
 """
 
 import json
@@ -17,11 +20,18 @@ import torch
 
 class Base3TritQuantizer:
     """
-    Quantizes 2D-DCT spectral coefficients into 4 hierarchical frequency bands:
-      - Band 0 (rho <= 0.10): DC / Basal harmonics -> 8-bit uint (8 bpp)
-      - Band 1 (0.10 < rho <= 0.25): Mid frequencies -> 4-bit nibbles (4 bpp)
-      - Band 2 (0.25 < rho <= 0.50): High-mid frequencies -> Base-3 Trits (1.6 bpp)
-      - Band 3 (rho > 0.50): High frequencies -> Truncated to zero (0 bpp)
+    Quantizes 2D-DCT spectral coefficients into 4 hierarchical frequency bands.
+
+    Canonical defaults (r0=0.10, r1=0.25, r2=0.50) are used for all
+    TinyStories-10M main results (0.94–0.95 bpp on 256×1024 matrices).
+    See paper Table 6 for the full rate–distortion sweep:
+      (0.08,0.22,0.50)→0.43 bpp, (0.10,0.30,0.75)→0.91 bpp,
+      (0.15,0.40,1.00)→1.64 bpp, (0.45,0.90,1.41)→3.77 bpp, etc.
+
+      - Band 0 (rho <= r0): DC / Basal harmonics -> 8-bit uint (8 bpp)
+      - Band 1 (r0 < rho <= r1): Mid frequencies -> 4-bit nibbles (4 bpp)
+      - Band 2 (r1 < rho <= r2): High-mid frequencies -> Base-3 Trits (1.6 bpp)
+      - Band 3 (rho > r2): High frequencies -> Truncated to zero (0 bpp)
     """
     def __init__(self, r0: float = 0.10, r1: float = 0.25, r2: float = 0.50):
         self.r0 = r0
@@ -223,6 +233,10 @@ class TritQFormat:
         """
         Loads a .tritq checkpoint and reconstructs all weight tensors.
 
+        If *quantizer* is None, radii are taken from the file header
+        (r0,r1,r2 saved at write time).  If a custom quantizer is passed
+        its radii override the header.
+
         Returns:
             (config_dict, weights_dict) where config_dict is the model config
             and weights_dict maps tensor names to reconstructed torch.Tensors.
@@ -237,6 +251,9 @@ class TritQFormat:
 
             # Read config safely (no eval())
             (cfg_len,) = struct.unpack("<I", f.read(4))
+            # Guard against malicious / corrupted headers (OOM / huge alloc)
+            if cfg_len > 1_000_000:
+                raise ValueError(f"Invalid .tritq header: cfg_len {cfg_len} exceeds 1 MB limit")
             cfg_str = f.read(cfg_len).decode("utf-8")
             try:
                 header_meta = json.loads(cfg_str)
@@ -258,8 +275,10 @@ class TritQFormat:
             if quantizer is None:
                 quantizer = Base3TritQuantizer(r0=file_r0, r1=file_r1, r2=file_r2)
 
-            # Read number of tensors
+            # Read number of tensors (guard against absurd counts)
             (num_tensors,) = struct.unpack("<I", f.read(4))
+            if num_tensors > 10_000:
+                raise ValueError(f"Invalid .tritq header: num_tensors {num_tensors} exceeds 10k limit")
             weights = {}
 
             for _ in range(num_tensors):

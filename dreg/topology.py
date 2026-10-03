@@ -30,8 +30,18 @@ def dirichlet_energy_2d(
     normalization: str = "numel",
 ) -> torch.Tensor:
     """
-    Computes the 2D Dirichlet Harmonic Energy of a weight matrix:
-        E(W) = 0.5 * Tr(W^T L W) = 0.5 * sum_{(u,v) in E} ||w_u - w_v||^2
+    Computes the 2D Dirichlet Harmonic Energy of a weight matrix.
+
+    Variational form (continuous limit):
+        E_var(W) = 1/(2*M*N) * sum_{(u,v) in E} ||w_u - w_v||^2
+
+    Implementation note — factor 2:
+        For backward compatibility the ``'numel'`` mode returns
+        ``sum_sq / (M*N)`` which equals ``2 * E_var``.  The ``'edges'``
+        mode (``sum_sq / num_edges``) is asymptotically equal to ``E_var``
+        for large matrices since ``num_edges ≈ 2*M*N``.  Both modes are
+        monotonic in roughness; only the absolute scale differs by ~2×.
+        All published TinyStories sweeps use ``'numel'`` consistently.
 
     Args:
         weight: Tensor of shape (out_features, in_features)
@@ -39,8 +49,10 @@ def dirichlet_energy_2d(
                     If None, uses the natural (out_features, in_features) grid.
         normalization: Normalization mode for the energy scalar:
             - 'numel' (default): Normalizes by total elements (M * N). Backward-compatible.
+              Equals 2× the variational form. Used for all TinyStories results.
             - 'edges': Normalizes by the exact number of grid edges ((M-1)*N + M*(N-1)),
               providing scale-invariant roughness estimation across varying matrix shapes.
+              Asymptotically equal to the variational form.
             - 'none': Raw sum of squared differences without division.
 
     Returns:
@@ -103,6 +115,10 @@ class DirichletLoss(nn.Module):
                 total_energy = total_energy + dirichlet_energy_2d(mod.weight, normalization=self.normalization)
                 count += 1
         if total_energy is None:
+            # No 2-D weights found — return CPU scalar (no device to infer).
+            # Caller adds this to a loss that may live on any device; returning
+            # a Python float-equivalent 0-D tensor keeps the graph disconnected
+            # and avoids device mismatch in the common "no linear" edge case.
             return torch.tensor(0.0)
         if count == 0:
             return total_energy

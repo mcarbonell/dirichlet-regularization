@@ -28,7 +28,7 @@
 #endif
 
 #define MAX_SUBLAYERS 64
-#define MAX_MATRICES_PER_SUBLAYER 4
+#define MAX_MATRICES_PER_SUBLAYER 8  /* 8 covers full Transformer block (4 attn + 3–4 FFN) */
 
 #ifdef _WIN32
 #define EXPORT __declspec(dllexport)
@@ -363,7 +363,11 @@ EXPORT int c_spectral_register_matrix(
     size_t target_offset_floats
 ) {
     if (sublayer_k < 0 || sublayer_k >= MAX_SUBLAYERS) return -1;
-    if (mat_idx < 0 || mat_idx >= MAX_MATRICES_PER_SUBLAYER) return -2;
+    if (mat_idx < 0 || mat_idx >= MAX_MATRICES_PER_SUBLAYER) {
+        fprintf(stderr, "[c_spectral] ERROR: mat_idx %d >= MAX_MATRICES_PER_SUBLAYER %d (increase MAX or split sublayer)\n",
+                mat_idx, MAX_MATRICES_PER_SUBLAYER);
+        return -2;
+    }
 
     CSublayerRecord* sub = &g_sublayers[sublayer_k];
     if (mat_idx >= sub->num_matrices) {
