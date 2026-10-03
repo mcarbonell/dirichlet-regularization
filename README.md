@@ -28,7 +28,7 @@ This one constraint has a profound consequence: it **concentrates spectral energ
   <img src="docs/figures/fig1_weight_heatmaps.png" alt="Spatial Weight Structures: Standard AdamW vs Dirichlet Regularization" width="90%">
 </p>
 
-> **Figure 1: Spatial Weight Structures.** Left: Standard AdamW training leaves weights in an uncorrelated, high-frequency white noise state ($E_D = 0.0016$). Right: 2D Dirichlet Regularization forces weights into smooth, continuous cortical manifolds ($E_D = 0.0001$, a 94% reduction in spatial roughness) that pack over 72%–96% of variance into low-frequency DCT harmonics.
+> **Figure 1: Spatial Weight Structures (64×64 patches, cf. Table 2 for mean $E_D$ over full 10M model).** Left: Standard AdamW leaves weights in an uncorrelated, high-frequency white noise state ($E_D = 0.0016$ on this patch). Right: 2D Dirichlet Regularization forces weights into smooth, continuous cortical manifolds ($E_D = 0.0001$ on this patch, a 94% reduction). Table 2 reports mean $E_D$ over all $256\times1024$/$256\times256$ matrices: $0.0123\to0.0034$ ($-72.1\%$).
 
 ---
 
@@ -44,11 +44,13 @@ $$\mathcal{L}_{\text{Dirichlet}} = \frac{\lambda}{4} \sum_{(u, v) \in \mathcal{E
 
 where $L$ is the discrete graph Laplacian over the lattice $\mathcal{G} = (\mathcal{V}, \mathcal{E})$.
 
-Under this regularization, the 2D-DCT spectral coefficients decay according to a power law:
+Under a Gaussian prior $p(W)\!\propto\!\exp(-\tfrac{\lambda}{2}\operatorname{Tr}W^\top L W)$, the 2D-DCT spectral coefficients follow (field-theoretic motivation, not a dynamical theorem for SGD):
 
 $$\mathbb{E}[|C_{u, v}|^2] \propto \frac{1}{1 + \lambda (u^2 + v^2)}$$
 
 This is the key: **smooth weight matrices have compressible spectra** — just like smooth images compress well under JPEG/DCT.
+
+> **A note on $E_D$ normalization:** the variational form is $\tfrac1{2MN}\!\sum\!\Delta^2$, while `dreg` exposes `numel` ($=\tfrac1{MN}\!\sum\!\Delta^2 = 2\!\times\!$ variational) for backward compatibility and `edges` ($\approx$ variational). All TinyStories sweeps use `numel` consistently; see `dreg/topology.py` docstring and paper §3.1.
 
 <p align="center">
   <img src="docs/figures/fig2_dct_energy_spectra.png" alt="2D-DCT Spectral Energy Compaction" width="90%">
@@ -141,28 +143,29 @@ The Dirichlet regularization principle is **architecture-agnostic**. It is not s
 
 ## Case Study: Sub-1.0 bpp Transformer Quantization
 
-As a concrete demonstration, we apply Dirichlet Regularization to autoregressive Transformers and achieve **sub-1.0 bpp quantization** — compressing 32-bit weights to under 1 bit per parameter (down to ~0.47 bpp / 68x) — with graceful degradation compared to standard models.
+As a concrete demonstration, we apply Dirichlet Regularization to autoregressive Transformers and achieve **sub-1.0 bpp quantization** — compressing 32-bit weights to under 1 bit per parameter (canonical **0.945 bpp / 33.9×** on TinyStories-10M; **0.43 bpp / 74×** in the ultra-aggressive regime) — with graceful degradation compared to standard models. The exact bit-rate is geometry-dependent; see Table 6 (paper) for the full $(r_0,r_1,r_2)\!\to\!$bpp frontier and §3.3 for the canonical $(0.10,0.25,0.50)$ setting.
 
 <p align="center">
   <img src="docs/figures/fig3_pareto_quantization.png" alt="Pareto Quantization Curve" width="80%">
 </p>
 
-> **Figure 3: Dirichlet Regularization Pareto Tradeoff Curve.** 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0.0, 0.01, 5.0, 15.0, 30.0\}$) on TinyStories 10M. Increasing spatial surface tension monotonically drives down weight roughness $E_D$ (blue), which directly causes a monotonic drop in quantized perplexity under 0.945 bpp compression (red).
+> **Figure 3: Dirichlet Regularization Pareto Tradeoff Curve.** 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0.0, 0.01, 5.0, 15.0, 30.0\}$) on TinyStories 10M. For $\lambda_{\text{topo}}\!\ge\!5$, increasing spatial surface tension drives down weight roughness $E_D$ (blue, overall $-54.5\%$ at $\lambda=30$; $\lambda=0.01$ is washed out by AdamW) and induces an overall decreasing trend in quantized perplexity at the canonical 0.945 bpp (46.60→39.80; see paper Table 1 for the one non-monotonic point at $\lambda=0.01$).
 
 ### The Falsification Test
 
 Does extreme quantization tolerance come from the Transformer architecture itself, or is spatial continuity in the weights the enabling factor?
 
-Run the standalone benchmark:
+Run the standalone benchmark (requires **≥5 epochs** and **$\lambda\!\approx\!15$–30** to observe separation; $\lambda\!\le\!0.01$ is washed out):
 ```bash
-python examples/evaluate_falsification.py
+python examples/evaluate_falsification.py            # defaults: epochs=8, lambda=30.0
+python examples/evaluate_falsification.py --epochs 2 --lambda-val 5.0  # too small → may not separate (warning shown)
 ```
 
 The script trains both a Topographic model (with Dirichlet loss) and a Standard model (without spatial constraints) on structured sequential data, quantizes both under identical 4-band Base-3 Trit quantization, and evaluates Perplexity (PPL) and relative degradation dynamically.
 
 ### Quantization Format: Base-3 Trit Packing (`.tritq`)
 
-We pack 5 balanced trits $\{-1, 0, +1\}$ into a single byte ($3^5 = 243 \le 256$), achieving an exact lossless packing rate of 1.60 bits/trit for the high-mid band, with higher frequencies truncated to 0 bits (yielding sub-1.0 bpp overall).
+We pack 5 balanced trits $\{-1, 0, +1\}$ into a single byte ($3^5 = 243 \le 256$), achieving an exact lossless packing rate of 1.60 bits/trit for the high-mid band, with higher frequencies truncated to 0 bits (yielding sub-1.0 bpp overall). Canonical radii $(r_0,r_1,r_2)=(0.10,0.25,0.50)$ give ~0.945 bpp on TinyStories-10M; see paper Table 6 and `dreg/quantization.py` for the full rate map (0.43–3.77 bpp).
 
 ### Embedded Inference Architecture
 
