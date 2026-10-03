@@ -30,7 +30,7 @@ coverage.xml
 # Local docs
 docs/private/
 docs/attention-neuron/
-docs/auditoria*
+# docs/auditoria*
 
 # LaTeX build files
 *.aux
