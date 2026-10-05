@@ -4,9 +4,10 @@
 **Autor:** M. Carbonell  
 **Fecha de Consolidación:** 2026-10-01  
 **Estado:** Documento Suplementario de Ingeniería de Sistemas y Evidencia Empírica  
-**Serie Experimental:** `v382` — `v395`  
-**Repositorio:** [`mcarbonell/dirichlet-regularization`](https://github.com/mcarbonell/dirichlet-regularization)  
-**Paquete:** `dreg`  
+**Serie Experimental:** `v382` — `v395` de attention-neuron 
+**Repositorio Actual:** [`mcarbonell/dirichlet-regularization`](https://github.com/mcarbonell/dirichlet-regularization)  
+**Repositorio Original:** [`mcarbonell/attention-neuron`](https://github.com/mcarbonell/attention-neuron)  
+**Paquete:** `dreg` (anteriormente `topospec`) 
 **Clasificación de Rigor:** Nivel 1 a Nivel 2 (Ingeniería de Sistemas, Fundamentos Espectrales y Auditorías de Silicio)  
 
 ---
