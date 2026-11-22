@@ -4,7 +4,7 @@ Tests for spectral module: DCT/IDCT transforms and BlockDCTTiler.
 
 import torch
 
-from dreg.spectral import BlockDCTTiler, dct2d, dct_matrix_1d, idct2d
+from dreg.spectral import BlockDCTTiler, dct1d, dct2d, dct_matrix_1d, idct1d, idct2d, spectral_matvec
 
 
 class TestDCTMatrix:
@@ -90,6 +90,18 @@ class TestDCT2D:
         x = torch.zeros(8, 8)
         s = dct2d(x)
         assert torch.allclose(s, torch.zeros_like(s))
+
+    def test_dct1d_and_spectral_matvec_exact_equivalence(self):
+        """Direct spectral matvec IDCT_1D(DCT_1D(x) @ S^T) must match x @ W^T."""
+        torch.manual_seed(7)
+        x = torch.randn(4, 32)
+        assert torch.allclose(idct1d(dct1d(x)), x, atol=1e-5)
+
+        w = torch.randn(64, 32)
+        s = dct2d(w)
+        y_spatial = x @ w.t()
+        y_spectral = spectral_matvec(x, s)
+        assert torch.allclose(y_spatial, y_spectral, atol=1e-4)
 
 
 class TestBlockDCTTiler:

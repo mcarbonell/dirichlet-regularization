@@ -76,6 +76,31 @@ class TestBase3TritQuantizer:
             Base3TritQuantizer(r0=0.3, r1=0.2, r2=0.5)
         with pytest.raises(ValueError, match="0 <= r0 <= r1 <= r2"):
             Base3TritQuantizer(r0=-0.1, r1=0.2, r2=0.5)
+        with pytest.raises(ValueError, match="Unknown band2_mode"):
+            Base3TritQuantizer(band2_mode="invalid")
+
+    def test_lloyd_max_beats_or_matches_legacy_and_bounds_energy(self):
+        """Lloyd-Max Band-2 must achieve <= MSE of legacy and never inflate energy > 100%."""
+        torch.manual_seed(42)
+        m, n = 64, 64
+        u = torch.arange(m).view(-1, 1).float() / m
+        v = torch.arange(n).view(1, -1).float() / n
+        spec = torch.exp(-(u**2 + v**2) / (2 * 0.25**2)) * torch.randn(m, n)
+
+        q_opt = Base3TritQuantizer(0.15, 0.40, 1.00, band2_mode="lloyd_max")
+        q_leg = Base3TritQuantizer(0.15, 0.40, 1.00, band2_mode="legacy")
+
+        rec_opt = q_opt.dequantize_matrix(q_opt.quantize_matrix(spec))
+        rec_leg = q_leg.dequantize_matrix(q_leg.quantize_matrix(spec))
+
+        mse_opt = (rec_opt - spec).pow(2).mean().item()
+        mse_leg = (rec_leg - spec).pow(2).mean().item()
+        assert mse_opt <= mse_leg
+
+        # Band-2 projection theorem: reconstructed Band-2 energy <= original Band-2 energy
+        rho = q_opt.compute_radial_grid(m, n, spec.device)
+        m2 = (rho > 0.40) & (rho <= 1.00)
+        assert (rec_opt[m2] ** 2).sum().item() <= (spec[m2] ** 2).sum().item() * (1.0 + 1e-5)
 
     def test_empty_bands_do_not_crash(self):
         """Small matrices or equal band boundaries should not crash on empty masks."""

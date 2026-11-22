@@ -69,7 +69,7 @@ def build():
             cmd.append("-fPIC")
         cmd.extend(["-o", output_path, c_source])
         if "windows" not in system:
-            cmd.append("-pthread")
+            cmd.extend(["-pthread", "-lm"])
     else:  # cl (MSVC)
         cmd = [
             "cl",

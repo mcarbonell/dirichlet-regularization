@@ -16,6 +16,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #if defined(_WIN32) && !defined(USE_POSIX_THREADS)
 #include <windows.h>
@@ -561,4 +566,221 @@ EXPORT void c_spectral_decode_matrix_direct(
     rec.target_offset_floats = 0;
 
     decode_single_matrix(&rec, dct_buf, temp_buf, target_buf);
+}
+
+/* -------------------------------------------------------------------------
+ * 7. Direct Spectral-Domain Streaming MatVec (O(M + N) SRAM, O(N log N) DCT)
+ *    Computes y = x @ W^T = IDCT_1D( S @ DCT_1D(x) ) directly from packed
+ *    .tritq bitstreams without ever materializing the M x N weight matrix.
+ * ------------------------------------------------------------------------- */
+
+static inline int is_power_of_two(int n) {
+    return (n > 0) && ((n & (n - 1)) == 0);
+}
+
+/* In-place iterative radix-2 Cooley-Tukey FFT.
+ * dir = +1 -> forward DFT:  sum_n x[n] * exp(-i * 2*pi*k*n / N)
+ * dir = -1 -> inverse DFT:  sum_k X[k] * exp(+i * 2*pi*k*n / N) (unnormalized)
+ */
+static void fft_radix2(float* re, float* im, int N, int dir) {
+    /* Bit-reversal permutation */
+    for (int i = 1, j = 0; i < N; i++) {
+        int bit = N >> 1;
+        for (; j & bit; bit >>= 1) {
+            j ^= bit;
+        }
+        j ^= bit;
+        if (i < j) {
+            float tr = re[i]; re[i] = re[j]; re[j] = tr;
+            float ti = im[i]; im[i] = im[j]; im[j] = ti;
+        }
+    }
+
+    for (int len = 2; len <= N; len <<= 1) {
+        double ang = -2.0 * M_PI * (double)dir / (double)len;
+        double wlen_r = cos(ang);
+        double wlen_i = sin(ang);
+        int half = len >> 1;
+        for (int i = 0; i < N; i += len) {
+            double wr = 1.0;
+            double wi = 0.0;
+            for (int j = 0; j < half; j++) {
+                int u = i + j;
+                int v = u + half;
+                float vr = (float)((double)re[v] * wr - (double)im[v] * wi);
+                float vi = (float)((double)re[v] * wi + (double)im[v] * wr);
+                re[v] = re[u] - vr;
+                im[v] = im[u] - vi;
+                re[u] += vr;
+                im[u] += vi;
+                double next_wr = wr * wlen_r - wi * wlen_i;
+                wi = wr * wlen_i + wi * wlen_r;
+                wr = next_wr;
+            }
+        }
+    }
+}
+
+static void fast_dct1d(const float* x, float* y, int N, float* re, float* im) {
+    float s0 = sqrtf(1.0f / (float)N);
+    float sk = sqrtf(2.0f / (float)N);
+
+    if (is_power_of_two(N) && N >= 2) {
+        int half = N >> 1;
+        for (int m = 0; m < half; m++) {
+            re[m] = x[2 * m];
+            re[N - 1 - m] = x[2 * m + 1];
+        }
+        memset(im, 0, (size_t)N * sizeof(float));
+        fft_radix2(re, im, N, +1);
+
+        y[0] = s0 * re[0];
+        double scale_ang = M_PI / (2.0 * (double)N);
+        for (int k = 1; k < N; k++) {
+            double ang = scale_ang * (double)k;
+            float ca = (float)cos(ang);
+            float sa = (float)sin(ang);
+            y[k] = sk * (re[k] * ca + im[k] * sa);
+        }
+    } else {
+        double scale_ang = M_PI / (2.0 * (double)N);
+        for (int k = 0; k < N; k++) {
+            float acc = 0.0f;
+            for (int n = 0; n < N; n++) {
+                acc += x[n] * (float)cos(scale_ang * (double)(2 * n + 1) * (double)k);
+            }
+            y[k] = (k == 0 ? s0 : sk) * acc;
+        }
+    }
+}
+
+static void fast_idct1d(const float* y, float* x, int N, float* re, float* im) {
+    float s0 = sqrtf(1.0f / (float)N);
+    float sk = sqrtf(2.0f / (float)N);
+
+    if (is_power_of_two(N) && N >= 2) {
+        re[0] = 2.0f * s0 * y[0];
+        im[0] = 0.0f;
+        double scale_ang = M_PI / (2.0 * (double)N);
+        for (int k = 1; k < N; k++) {
+            float ck = sk * y[k];
+            float cnk = sk * y[N - k];
+            double ang = scale_ang * (double)k;
+            float ca = (float)cos(ang);
+            float sa = (float)sin(ang);
+            re[k] = ck * ca + cnk * sa;
+            im[k] = ck * sa - cnk * ca;
+        }
+        fft_radix2(re, im, N, -1);
+
+        int half = N >> 1;
+        for (int m = 0; m < half; m++) {
+            x[2 * m] = 0.5f * re[m];
+            x[2 * m + 1] = 0.5f * re[N - 1 - m];
+        }
+    } else {
+        double scale_ang = M_PI / (2.0 * (double)N);
+        for (int n = 0; n < N; n++) {
+            float acc = s0 * y[0];
+            for (int k = 1; k < N; k++) {
+                acc += sk * y[k] * (float)cos(scale_ang * (double)(2 * n + 1) * (double)k);
+            }
+            x[n] = acc;
+        }
+    }
+}
+
+/*
+ * Direct zero-reconstruction single-token matvec: y_out [M] = x_in [N] @ W^T.
+ * Caller provides a tiny scratchpad work_buf of length (N + M + 2 * max(M, N)) floats
+ * (e.g. only 13 KB for a 1024 x 256 FFN layer — zero M x N buffers, zero DCT matrices).
+ */
+EXPORT void c_spectral_matvec_direct(
+    int M, int N,
+    int n0, int n1, int n2,
+    float min0, float scale0,
+    float min1, float scale1,
+    float scale_trit,
+    const uint8_t* b0,
+    const uint8_t* b1,
+    const uint8_t* b2,
+    const int32_t* m0_idx,
+    const int32_t* m1_idx,
+    const int32_t* m2_idx,
+    const float* x_in,
+    float* y_out,
+    float* work_buf
+) {
+    if (M <= 0 || N <= 0 || !x_in || !y_out || !work_buf) return;
+    init_trit_lut();
+
+    int max_dim = M > N ? M : N;
+    float* x_spec = work_buf;
+    float* y_spec = x_spec + N;
+    float* fft_re = y_spec + M;
+    float* fft_im = fft_re + max_dim;
+    size_t total_el = (size_t)M * (size_t)N;
+
+    /* 1. 1D-DCT of input activation vector x: O(N log N) */
+    fast_dct1d(x_in, x_spec, N, fft_re, fft_im);
+
+    /* 2. Streaming sparse spectral accumulation: y_spec = S @ x_spec (zero M x N buffer!) */
+    memset(y_spec, 0, (size_t)M * sizeof(float));
+
+    if (n0 > 0 && b0 != NULL && m0_idx != NULL) {
+        for (int i = 0; i < n0; i++) {
+            int32_t idx = m0_idx[i];
+            if (idx >= 0 && (size_t)idx < total_el) {
+                int row = idx / N;
+                int col = idx - row * N;
+                float v = ((float)b0[i]) * scale0 + min0;
+                y_spec[row] += v * x_spec[col];
+            }
+        }
+    }
+
+    if (n1 > 0 && b1 != NULL && m1_idx != NULL) {
+        int n1_bytes = (n1 + 1) / 2;
+        int out_i = 0;
+        for (int i = 0; i < n1_bytes && out_i < n1; i++) {
+            uint8_t byte = b1[i];
+            int32_t idx0 = m1_idx[out_i++];
+            if (idx0 >= 0 && (size_t)idx0 < total_el) {
+                int row = idx0 / N;
+                int col = idx0 - row * N;
+                float v0 = ((float)((byte >> 4) & 0x0F)) * scale1 + min1;
+                y_spec[row] += v0 * x_spec[col];
+            }
+            if (out_i < n1) {
+                int32_t idx1 = m1_idx[out_i++];
+                if (idx1 >= 0 && (size_t)idx1 < total_el) {
+                    int row = idx1 / N;
+                    int col = idx1 - row * N;
+                    float v1 = ((float)(byte & 0x0F)) * scale1 + min1;
+                    y_spec[row] += v1 * x_spec[col];
+                }
+            }
+        }
+    }
+
+    if (n2 > 0 && b2 != NULL && m2_idx != NULL) {
+        int n2_bytes = (n2 + 4) / 5;
+        int out_trit = 0;
+        for (int i = 0; i < n2_bytes && out_trit < n2; i++) {
+            uint8_t byte = b2[i];
+            const int8_t* lut = TRIT_LUT[byte];
+            for (int t = 0; t < 5 && out_trit < n2; t++) {
+                int32_t idx = m2_idx[out_trit++];
+                int8_t trit = lut[t];
+                if (trit != 0 && idx >= 0 && (size_t)idx < total_el) {
+                    int row = idx / N;
+                    int col = idx - row * N;
+                    y_spec[row] += ((float)trit * scale_trit) * x_spec[col];
+                }
+            }
+        }
+    }
+
+    /* 3. 1D-IDCT of output spectral vector y_spec: O(M log M) */
+    fast_idct1d(y_spec, y_out, M, fft_re, fft_im);
 }

@@ -6,7 +6,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-red.svg)](https://pytorch.org/)
 [![CI](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml/badge.svg)](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-94_passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-99_passed-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen.svg)](tests/)
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Preprint (PDF)](https://img.shields.io/badge/Preprint-PDF-purple.svg)](paper/paper-draft.pdf)
@@ -48,7 +48,7 @@ $$\mathcal{E}_D^{\text{numel}}(W) = \frac{1}{MN} \sum_{k=0}^{M-1}\sum_{l=0}^{N-1
 
 High-frequency modes $(k, l)$ are penalized quadratically, concentrating weight energy into the lowest 2D-DCT harmonics.
 
-> **Normalization note:** `dreg` provides `normalization="numel"` ($\frac{1}{MN}\sum \Delta^2 = 2\,\mathcal{E}_D^{\text{var}}$, default) and `normalization="edges"` ($\approx \mathcal{E}_D^{\text{var}}$). Both give identical relative roughness reductions; absolute values differ by $\approx 2\times$. See [dreg/topology.py](dreg/topology.py) and §3.1 of the preprint.
+> **Normalization note:** `dreg` provides `normalization="numel"` ($\frac{1}{MN}\sum \Delta^2 = 2\,\mathcal{E}_D^{\text{var}}$, default), `normalization="edges"` ($\approx \mathcal{E}_D^{\text{var}}$), and scale-invariant `normalization="rayleigh"` ($\frac{\sum \Delta^2}{2\|W\|_F^2} \in [0, 4]$, immune to $L_2$ magnitude shrinkage), plus `layer_weighting="param_weighted"` to balance gradient strength equally across square Attention and wide FFN layers. See [dreg/topology.py](dreg/topology.py) and §3.1 of the preprint.
 
 <p align="center">
   <img src="docs/figures/fig2_dct_energy_spectra.png" alt="2D-DCT Spectral Energy Compaction" width="90%">
@@ -80,8 +80,15 @@ pip install -e ".[dev]"         # pytest, pytest-cov, ruff
 ```python
 from dreg import DirichletLoss
 
-# Automatically skips nn.Embedding, lm_head, frozen weights, and deduplicates tied weights
-topo_reg = DirichletLoss(weight_decay=15.0)
+# Automatically skips nn.Embedding, lm_head, frozen weights, and deduplicates tied weights.
+# Use normalization="rayleigh" + layer_weighting="param_weighted" for scale-invariant,
+# FFN-balanced smoothing (recommended: weight_decay=0.25–0.50), or classic normalization="numel"
+# with weight_decay=15.0–30.0.
+topo_reg = DirichletLoss(
+    weight_decay=0.50,
+    normalization="rayleigh",
+    layer_weighting="param_weighted",
+)
 
 # Inside your training loop:
 task_loss = criterion(model(inputs), targets)
@@ -153,17 +160,19 @@ Evaluated on 25 validation batches (204,800 tokens; full results in [results/par
 
 ---
 
-## Quantization Format (`.tritq`) & C11 DMA Micro-Kernel
+## Quantization Format (`.tritq`) & C11 Direct Spectral Micro-Kernel
 
-* **Exact Base-3 Trit Packing:** 5 balanced trits $\{-1, 0, +1\}$ pack bijectively into 1 byte ($3^5 = 243 \le 256 \Rightarrow 1.60\text{ bits/trit}$), decoded in $\mathcal{O}(1)$ time via a 1.25 KB L1-cache lookup table. Non-topographic parameters (`token_emb`, `lm_head`, LayerNorms) are preserved uncompressed in FP16.
-* **Portable C11 Micro-Kernel (`kernel/spectral_dma_kernel.c`):** Zero-copy Win32/POSIX asynchronous double-buffered DMA prefetching verified to `< 1e-5` float32 parity against PyTorch (`192 KB` working buffers for `128×128` projections; see §3.4 of the preprint for Block-DCT tiling and direct spectral-domain matvec $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$ for wider layers).
+* **Exact Base-3 Trit Packing + Lloyd-Max Band-2:** 5 balanced trits $\{-1, 0, +1\}$ pack bijectively into 1 byte ($3^5 = 243 \le 256 \Rightarrow 1.60\text{ bits/trit}$), quantized via 1D Lloyd-Max MSE-optimal scaling and decoded in $\mathcal{O}(1)$ time via a 1.25 KB L1-cache lookup table. Non-topographic parameters (`token_emb`, `lm_head`, LayerNorms) are preserved uncompressed in FP16.
+* **Portable C11 Micro-Kernel (`kernel/spectral_dma_kernel.c`):**
+  * **Zero-copy async DMA double-buffering** (Win32 Events / POSIX pthreads) verified to `< 1e-5` float32 parity against PyTorch.
+  * **Direct Spectral-Domain Streaming MatVec (`c_spectral_matvec_direct`):** Computes $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$ via radix-2 $\mathcal{O}(N \log N)$ 1D-DCT directly from `.tritq` bitstreams **without materializing $M \times N$ weights or storing DCT basis tables** — cutting `1024×256` FFN working SRAM from `8.4 MB` down to **`13.0 KB`** (`650×` reduction) and running **`~45×` faster** than full-matrix 2D-IDCT reconstruction (`1.9e-6` float32 parity).
 
 ---
 
 ## Reproducing Locally (CPU)
 
 ```bash
-# 1. Run the master end-to-end verification suite (94 tests + C parity + trained MLP + controls)
+# 1. Run the master end-to-end verification suite (99 tests + C parity + trained MLP + controls)
 python examples/reproduce_all.py
 
 # 2. Build and benchmark the native C11 DMA micro-kernel
@@ -208,7 +217,7 @@ dirichlet-regularization/
 │   ├── paper-draft.tex
 │   ├── references.bib
 │   └── figures/
-├── tests/                           # 94 automated unit, integration, and C-kernel tests (96% cov)
+├── tests/                           # 99 automated unit, integration, and C-kernel tests (96% cov)
 ├── CITATION.cff
 ├── pyproject.toml
 └── README.md

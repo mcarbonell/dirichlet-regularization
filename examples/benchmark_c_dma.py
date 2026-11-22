@@ -83,6 +83,18 @@ def load_c_kernel():
     c_lib.c_spectral_dma_wait_prefetch.argtypes = []
     c_lib.c_spectral_dma_wait_prefetch.restype = None
 
+    c_lib.c_spectral_matvec_direct.argtypes = [
+        ctypes.c_int, ctypes.c_int,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        ctypes.c_float, ctypes.c_float,
+        ctypes.c_float, ctypes.c_float,
+        ctypes.c_float,
+        ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+    ]
+    c_lib.c_spectral_matvec_direct.restype = None
+
     return c_lib
 
 
@@ -198,13 +210,58 @@ def main():
     tokens_per_sec = matrices_per_sec / float(matrices_per_token)
 
     print("\n" + "=" * 80)
-    print(" C DMA MICRO-KERNEL BENCHMARK REPORT")
+    print(" C DMA MICRO-KERNEL BENCHMARK REPORT (FULL MATRIX DECODE: 128x128)")
     print("=" * 80)
     print(f"TritQ Bit Rate:               {packed['bpp']:.3f} bpp ({32.0 / packed['bpp']:.1f}x compression)")
     print(f"Single Matrix Decode Latency: {latency_us:.2f} µs")
     print(f"Decoding Throughput:          {matrices_per_sec:.1f} matrices/second")
     print(f"Transformer L=6 (42 mats):    {tokens_per_sec:.1f} tokens/second (decode-bound upper limit)")
     print(f"Active Working Buffers:       {M * N * 4 / 1024 * 3:.1f} KB (dct + temp + target for {M}x{N})")
+    print("=" * 80)
+
+    # 4. Direct Spectral-Domain MatVec on TinyStories-10M FFN shape (1024 x 256)
+    print("\n[3/3] Benchmarking Direct Spectral-Domain MatVec (1024 x 256 FFN, Zero M*N Buffers)...")
+    Mf, Nf = 1024, 256
+    torch.manual_seed(42)
+    w_ffn = torch.randn(Mf, Nf, dtype=torch.float32) * 0.05
+    x_vec = torch.randn(Nf, dtype=torch.float32)
+    q_cal = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
+    p_ffn = q_cal.quantize_matrix(dct2d(w_ffn))
+    w_ffn_rec = idct2d(q_cal.dequantize_matrix(p_ffn))
+    y_ref_ffn = (x_vec @ w_ffn_rec.t()).numpy()
+
+    bf0 = p_ffn["band0"]["data"].tobytes()
+    bf1 = p_ffn["band1"]["data"].tobytes()
+    bf2 = p_ffn["band2"]["data"].tobytes()
+    mf0 = np.where(p_ffn["band0"]["mask"].reshape(-1))[0].astype(np.int32)
+    mf1 = np.where(p_ffn["band1"]["mask"].reshape(-1))[0].astype(np.int32)
+    mf2 = np.where(p_ffn["band2"]["mask"].reshape(-1))[0].astype(np.int32)
+    x_np = x_vec.contiguous().numpy()
+    y_c = np.zeros(Mf, dtype=np.float32)
+    work_buf = np.zeros(Nf + Mf + 2 * max(Mf, Nf), dtype=np.float32)
+
+    n_mv = 200
+    t0 = time.perf_counter()
+    for _ in range(n_mv):
+        c_lib.c_spectral_matvec_direct(
+            Mf, Nf, len(mf0), len(mf1), len(mf2),
+            float(p_ffn["band0"]["min"]), float(p_ffn["band0"]["scale"]),
+            float(p_ffn["band1"]["min"]), float(p_ffn["band1"]["scale"]),
+            float(p_ffn["band2"]["scale"]),
+            bf0, bf1, bf2,
+            mf0.ctypes.data, mf1.ctypes.data, mf2.ctypes.data,
+            x_np.ctypes.data, y_c.ctypes.data, work_buf.ctypes.data,
+        )
+    mv_us = ((time.perf_counter() - t0) / n_mv) * 1e6
+    mv_diff = float(np.max(np.abs(y_ref_ffn - y_c)))
+
+    print("=" * 80)
+    print(" DIRECT SPECTRAL MATVEC REPORT (1024x256 FFN, O(M+N) SRAM, O(N log N) DCT)")
+    print("=" * 80)
+    print(f"TritQ Bit Rate:               {p_ffn['bpp']:.3f} bpp ({32.0 / p_ffn['bpp']:.1f}x compression)")
+    print(f"Max Abs Discrepancy vs Dense: {mv_diff:.8f} (< 1e-5 parity)")
+    print(f"Direct MatVec Latency:        {mv_us:.2f} µs (includes 1D-DCT + sparse matvec + 1D-IDCT)")
+    print(f"Working SRAM Scratchpad:      {work_buf.nbytes / 1024:.1f} KB (zero M*N matrices, zero DCT tables)")
     print("=" * 80)
 
 

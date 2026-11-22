@@ -34,14 +34,15 @@ def dct_matrix_1d(n: int, device: torch.device = torch.device("cpu"), dtype: tor
             _DCT_CACHE.move_to_end(key)
             return _DCT_CACHE[key]
 
-    # Fully vectorized construction via broadcasting (no Python loop)
-    k = torch.arange(n, device=device, dtype=dtype).unsqueeze(1)  # (n, 1)
-    i = torch.arange(n, device=device, dtype=dtype).unsqueeze(0)  # (1, n)
+    # Compute basis angles in float64 to avoid float32 phase drift at large n (e.g. n >= 1024)
+    k = torch.arange(n, device=device, dtype=torch.float64).unsqueeze(1)  # (n, 1)
+    i = torch.arange(n, device=device, dtype=torch.float64).unsqueeze(0)  # (1, n)
     d = torch.cos(math.pi * (2.0 * i + 1.0) * k / (2.0 * n))
 
     # Apply orthonormal scaling: sqrt(1/n) for k=0, sqrt(2/n) for k>0
     d[0, :] *= math.sqrt(1.0 / n)
     d[1:, :] *= math.sqrt(2.0 / n)
+    d = d.to(dtype=dtype)
 
     with _DCT_CACHE_LOCK:
         if key not in _DCT_CACHE:
@@ -49,6 +50,24 @@ def dct_matrix_1d(n: int, device: torch.device = torch.device("cpu"), dtype: tor
                 _DCT_CACHE.popitem(last=False)
             _DCT_CACHE[key] = d
         return _DCT_CACHE[key]
+
+
+def dct1d(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies the orthonormal 1D Type-II DCT along the last dimension of ``x``.
+    """
+    n = x.shape[-1]
+    d_n = dct_matrix_1d(n, device=x.device, dtype=x.dtype)
+    return x @ d_n.t()
+
+
+def idct1d(s: torch.Tensor) -> torch.Tensor:
+    """
+    Applies the orthonormal 1D Type-II inverse DCT (DCT-III) along the last dimension of ``s``.
+    """
+    n = s.shape[-1]
+    d_n = dct_matrix_1d(n, device=s.device, dtype=s.dtype)
+    return s @ d_n
 
 
 def dct2d(x: torch.Tensor) -> torch.Tensor:
@@ -71,6 +90,21 @@ def idct2d(s: torch.Tensor) -> torch.Tensor:
     d_m = dct_matrix_1d(m, device=s.device, dtype=s.dtype)
     d_n = dct_matrix_1d(n, device=s.device, dtype=s.dtype)
     return d_m.t() @ s @ d_n
+
+
+def spectral_matvec(x: torch.Tensor, spec_weight: torch.Tensor) -> torch.Tensor:
+    """
+    Computes the linear projection ``y = x @ W^T`` directly in the 2D-DCT spectral
+    domain without explicitly reconstructing ``W = D_M^T @ S @ D_N``:
+
+        y = IDCT_1D( DCT_1D(x) @ S^T )
+
+    For single-token inference (x of shape (..., N), spec_weight S of shape (M, N)),
+    this eliminates O(M*N) weight materialization and O(D^3) 2D-IDCT reconstruction.
+    """
+    x_spec = dct1d(x)
+    y_spec = x_spec @ spec_weight.t()
+    return idct1d(y_spec)
 
 
 class BlockDCTTiler:

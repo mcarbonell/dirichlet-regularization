@@ -155,6 +155,28 @@ class TestDirichletLoss:
         with pytest.raises(ValueError, match="Unknown normalization mode"):
             dirichlet_energy_2d(w, normalization="invalid_mode")
 
+    def test_rayleigh_normalization_is_scale_invariant(self):
+        """Rayleigh quotient must be invariant under positive scalar multiplication."""
+        torch.manual_seed(0)
+        w = torch.randn(32, 64)
+        r1 = dirichlet_energy_2d(w, normalization="rayleigh")
+        r10 = dirichlet_energy_2d(w * 10.0, normalization="rayleigh")
+        assert 0.0 <= r1.item() <= 4.0
+        assert r1.item() == pytest.approx(r10.item(), rel=1e-4)
+
+    def test_param_weighted_layer_aggregation(self):
+        """param_weighted should weight wider layers proportionally to M*N."""
+        small = nn.Linear(16, 16, bias=False)
+        wide = nn.Linear(16, 64, bias=False)
+        loss_fn = DirichletLoss(weight_decay=1.0, normalization="rayleigh", layer_weighting="param_weighted")
+        val = loss_fn([small, wide])
+        e_s = dirichlet_energy_2d(small.weight, normalization="rayleigh")
+        e_w = dirichlet_energy_2d(wide.weight, normalization="rayleigh")
+        expected = (e_s * small.weight.numel() + e_w * wide.weight.numel()) / (small.weight.numel() + wide.weight.numel())
+        assert val.item() == pytest.approx(expected.item(), rel=1e-5)
+        with pytest.raises(ValueError, match="Unknown layer_weighting"):
+            DirichletLoss(layer_weighting="bad")
+
     def test_dirichlet_loss_with_edge_normalization(self):
         model = nn.Sequential(nn.Linear(16, 32, bias=False))
         loss_fn = DirichletLoss(weight_decay=0.05, normalization="edges")

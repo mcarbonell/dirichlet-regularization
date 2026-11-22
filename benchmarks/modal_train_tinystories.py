@@ -65,12 +65,17 @@ def run_training(
     batch_size: int = 32,
     lr: float = 5e-4,
     topo_lambda: float = 0.01,
+    topo_normalization: str = "numel",
+    topo_layer_weighting: str = "uniform",
+    seed: int = 42,
     is_topographic: bool = True,
     dry_run: bool = True,
     eval_interval: int = 25,
 ) -> Dict[str, Any]:
     import copy
+    import random
 
+    import numpy as np
     import torch
     import torch.nn as nn
     import torch.optim as optim
@@ -85,6 +90,12 @@ def run_training(
         dct2d,
         idct2d,
     )
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[*] Running on device: {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
@@ -130,6 +141,8 @@ def run_training(
             ffn_dim=1024,
             max_seq_len=seq_len,
             topo_lambda=topo_lambda if is_topographic else 0.0,
+            topo_normalization=topo_normalization,
+            topo_layer_weighting=topo_layer_weighting,
         )
     elif scale == "20M":
         cfg = TopographicConfig(
@@ -140,6 +153,8 @@ def run_training(
             ffn_dim=1280,
             max_seq_len=seq_len,
             topo_lambda=topo_lambda if is_topographic else 0.0,
+            topo_normalization=topo_normalization,
+            topo_layer_weighting=topo_layer_weighting,
         )
     else:
         raise ValueError(f"Unknown scale: {scale}")
@@ -297,7 +312,11 @@ def run_training(
         print(f"[!] Sample generation warning: {e}")
 
     # 7. Save Checkpoints (passing the same quantizer used for evaluation)
-    lambda_tag = f"_lambda{topo_lambda}" if is_topographic else "_standard"
+    if is_topographic:
+        mode_tag = "" if (topo_normalization == "numel" and topo_layer_weighting == "uniform") else f"_{topo_normalization}_{topo_layer_weighting}"
+        lambda_tag = f"_lambda{topo_lambda}{mode_tag}_s{seed}"
+    else:
+        lambda_tag = f"_standard_s{seed}"
     ckpt_name = f"tinystories_{scale}_{model_type.lower()}{lambda_tag}_{max_steps}s"
     pt_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.pt")
     tritq_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.tritq")
@@ -334,14 +353,20 @@ def main(
     batch_size: int = 32,
     lr: float = 5e-4,
     topo_lambda: float = 0.01,
+    topo_normalization: str = "numel",
+    topo_layer_weighting: str = "uniform",
+    seed: int = 42,
     is_topographic: bool = True,
     dry_run: bool = True,
 ):
     print("=" * 78)
     print(" MODAL CLOUD TRAINING: TINYSTORIES WITH DIRICHLET REGULARIZATION")
     print("=" * 78)
-    print(f"[*] Configuration: Scale={scale}, Steps={steps}, Dry-Run={dry_run}")
-    print(f"[*] Topographic: {is_topographic} (lambda={topo_lambda if is_topographic else 0.0})")
+    print(f"[*] Configuration: Scale={scale}, Steps={steps}, Seed={seed}, Dry-Run={dry_run}")
+    print(
+        f"[*] Topographic: {is_topographic} (lambda={topo_lambda if is_topographic else 0.0}, "
+        f"norm={topo_normalization}, weighting={topo_layer_weighting})"
+    )
 
     results = run_training.remote(
         scale=scale,
@@ -349,6 +374,9 @@ def main(
         batch_size=batch_size,
         lr=lr,
         topo_lambda=topo_lambda,
+        topo_normalization=topo_normalization,
+        topo_layer_weighting=topo_layer_weighting,
+        seed=seed,
         is_topographic=is_topographic,
         dry_run=dry_run,
         eval_interval=max(10, min(100, steps // 20)),

@@ -55,6 +55,9 @@ def dirichlet_energy_2d(
             - 'edges': Normalizes by the exact number of grid edges ((M-1)*N + M*(N-1)),
               providing scale-invariant roughness estimation across varying matrix shapes.
               Asymptotically equal to the variational form.
+            - 'rayleigh': Variance-normalized Rayleigh quotient of the 2D Neumann Laplacian:
+              ``sum_sq / (2 * ||W||_F^2 + 1e-8)`` in ``[0, 4]``. Strictly scale-invariant
+              (immune to L2 magnitude shrinkage) and dimensionless across matrix scales.
             - 'none': Raw sum of squared differences without division.
 
     Returns:
@@ -94,10 +97,15 @@ def dirichlet_energy_2d(
         return sum_sq / max(sheet.numel(), 1)
     elif normalization == "edges":
         return sum_sq / max(num_edges, 1)
+    elif normalization == "rayleigh":
+        frob_sq = sheet.pow(2).sum()
+        return sum_sq / (2.0 * frob_sq + 1e-8)
     elif normalization == "none":
         return sum_sq
     else:
-        raise ValueError(f"Unknown normalization mode: {normalization}. Expected 'numel', 'edges', or 'none'.")
+        raise ValueError(
+            f"Unknown normalization mode: {normalization}. Expected 'numel', 'edges', 'rayleigh', or 'none'."
+        )
 
 
 class DirichletLoss(nn.Module):
@@ -109,17 +117,33 @@ class DirichletLoss(nn.Module):
     (e.g. ``lm_head``) are skipped because token indices have no spatial topology.
     Frozen weights (``requires_grad=False``) are skipped and tied weights are
     deduplicated by storage pointer.
+
+    Args:
+        weight_decay: Coupling strength lambda_topo.
+        normalization: Per-matrix normalization ('numel', 'edges', 'rayleigh', 'none').
+        layer_weighting: Aggregation across layers:
+            - 'uniform' (default): Equal average across layers (1/L).
+            - 'param_weighted': Weighted by parameter share (M_l*N_l / sum M_j*N_j),
+              eliminating per-weight gradient attenuation on wider layers (e.g. FFNs).
+        exclude_embeddings: Skip nn.Embedding layers (default True).
+        exclude_names: Module name substrings to skip (default ("lm_head",)).
     """
     def __init__(
         self,
         weight_decay: float = 0.01,
         normalization: str = "numel",
+        layer_weighting: str = "uniform",
         exclude_embeddings: bool = True,
         exclude_names: Tuple[str, ...] = ("lm_head",),
     ):
         super().__init__()
+        if layer_weighting not in {"uniform", "param_weighted"}:
+            raise ValueError(
+                f"Unknown layer_weighting: {layer_weighting}. Expected 'uniform' or 'param_weighted'."
+            )
         self.weight_decay = weight_decay
         self.normalization = normalization
+        self.layer_weighting = layer_weighting
         self.exclude_embeddings = exclude_embeddings
         self.exclude_names = tuple(n.lower() for n in exclude_names)
 
@@ -138,8 +162,8 @@ class DirichletLoss(nn.Module):
         else:
             named_iter = (("", mod) for mod in target)
 
-        total_energy = None
-        count = 0
+        energies = []
+        numels = []
         seen_ptrs = set()
 
         for name, mod in named_iter:
@@ -155,14 +179,19 @@ class DirichletLoss(nn.Module):
                 continue
             seen_ptrs.add(ptr)
 
-            if total_energy is None:
-                total_energy = torch.tensor(0.0, device=weight.device, dtype=weight.dtype)
-            total_energy = total_energy + dirichlet_energy_2d(weight, normalization=self.normalization)
-            count += 1
+            energies.append(dirichlet_energy_2d(weight, normalization=self.normalization))
+            numels.append(weight.numel())
 
-        if total_energy is None or count == 0:
+        if not energies:
             return torch.tensor(0.0)
-        return self.weight_decay * (total_energy / count)
+
+        if self.layer_weighting == "param_weighted":
+            total_numel = float(sum(numels))
+            agg = sum(e * (n / total_numel) for e, n in zip(energies, numels))
+        else:
+            agg = sum(energies) / len(energies)
+
+        return self.weight_decay * agg
 
 
 class DirichletScheduler:

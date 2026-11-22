@@ -176,6 +176,47 @@ def run_quantization_benchmark():
     topo_int2_ppl = eval_ppl(quantize_spatial_int2(topo_model))
     log_result("Spatial Uniform INT2 (RTN)", 2.00, std_int2_ppl, topo_int2_ppl, "2.6 MB (DRAM)", "Aggressive Spatial PTQ (Collapses)")
 
+    # 3b. Spatial Group-Wise INT2 (g=64, stronger fair PTQ baseline)
+    def quantize_spatial_int2_group(model_orig, group_size: int = 64):
+        m = copy.deepcopy(model_orig)
+        with torch.no_grad():
+            for p in m.get_linear_projections():
+                w = p.weight.detach()
+                orig_shape = w.shape
+                wg = w.reshape(-1, group_size)
+                scale = wg.abs().mean(dim=1, keepdim=True) * 1.25 + 1e-8
+                w_q = torch.clamp(torch.round(wg / scale), -1, 1) * scale
+                p.weight.copy_(w_q.reshape(orig_shape))
+        return m
+
+    std_int2g_ppl = eval_ppl(quantize_spatial_int2_group(std_model))
+    topo_int2g_ppl = eval_ppl(quantize_spatial_int2_group(topo_model))
+    log_result("Spatial Group INT2 (g=64)", 2.25, std_int2g_ppl, topo_int2g_ppl, "2.9 MB (DRAM)", "Per-group ternary PTQ control")
+
+    # 3c. Budget-Matched Quantized SVD (INT8 factors matched to ~1.64 bpp)
+    def quantize_svd_int8(model_orig, target_bpp: float = 1.64):
+        import math
+        m = copy.deepcopy(model_orig)
+        with torch.no_grad():
+            for p in m.get_linear_projections():
+                w = p.weight.detach()
+                rows, cols = w.shape
+                # k * (rows + cols) INT8 bytes = target_bpp/8 * rows * cols bytes
+                rank = max(1, min(min(rows, cols), int(math.floor((target_bpp / 8.0) * rows * cols / (rows + cols)))))
+                u, s, vh = torch.linalg.svd(w, full_matrices=False)
+                u_k = u[:, :rank] * s[:rank].sqrt().unsqueeze(0)
+                v_k = s[:rank].sqrt().unsqueeze(1) * vh[:rank, :]
+                su = u_k.abs().max() / 127.0 + 1e-8
+                sv = v_k.abs().max() / 127.0 + 1e-8
+                u_q = torch.clamp(torch.round(u_k / su), -127, 127) * su
+                v_q = torch.clamp(torch.round(v_k / sv), -127, 127) * sv
+                p.weight.copy_(u_q @ v_q)
+        return m
+
+    std_svd_ppl = eval_ppl(quantize_svd_int8(std_model))
+    topo_svd_ppl = eval_ppl(quantize_svd_int8(topo_model))
+    log_result("Quantized SVD (INT8, ~1.64b)", 1.64, std_svd_ppl, topo_svd_ppl, "1.7 MB (DRAM)", "Budget-matched low-rank control")
+
     # 4. Spectral Uniform INT4 (2D-DCT 4-bit)
     def quantize_spectral_int4(model_orig):
         m = copy.deepcopy(model_orig)

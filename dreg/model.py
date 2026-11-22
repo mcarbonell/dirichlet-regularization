@@ -26,6 +26,8 @@ class TopographicConfig:
     max_seq_len: int = 256
     dropout: float = 0.0
     topo_lambda: float = 0.01
+    topo_normalization: str = "numel"
+    topo_layer_weighting: str = "uniform"
     use_block_dct: bool = True
     block_size: int = 64
 
@@ -39,8 +41,8 @@ class TopographicLinear(nn.Linear):
         super().__init__(in_features, out_features, bias=bias)
         self.grid_shape = (out_features, in_features)
 
-    def dirichlet_energy(self) -> torch.Tensor:
-        return dirichlet_energy_2d(self.weight)
+    def dirichlet_energy(self, normalization: str = "numel") -> torch.Tensor:
+        return dirichlet_energy_2d(self.weight, normalization=normalization)
 
 
 class TopographicAttention(nn.Module):
@@ -148,18 +150,23 @@ class TopographicTransformer(nn.Module):
 
     def topographic_loss(self) -> torch.Tensor:
         """
-        Computes the average 2D Dirichlet harmonic energy across all
-        TopographicLinear projections in the network.
+        Computes the 2D Dirichlet harmonic energy across all TopographicLinear
+        projections using the configured normalization and layer weighting.
         """
-        total_energy = torch.tensor(0.0, device=self.token_emb.weight.device)
-        count = 0
+        energies = []
+        numels = []
         for m in self.modules():
             if isinstance(m, TopographicLinear):
-                total_energy = total_energy + m.dirichlet_energy()
-                count += 1
-        if count == 0:
-            return total_energy
-        return (total_energy / count) * self.cfg.topo_lambda
+                energies.append(m.dirichlet_energy(normalization=self.cfg.topo_normalization))
+                numels.append(m.weight.numel())
+        if not energies:
+            return torch.tensor(0.0, device=self.token_emb.weight.device)
+        if self.cfg.topo_layer_weighting == "param_weighted":
+            total_numel = float(sum(numels))
+            agg = sum(e * (n / total_numel) for e, n in zip(energies, numels))
+        else:
+            agg = sum(energies) / len(energies)
+        return agg * self.cfg.topo_lambda
 
     def get_linear_projections(self) -> List[TopographicLinear]:
         return [m for m in self.modules() if isinstance(m, TopographicLinear)]

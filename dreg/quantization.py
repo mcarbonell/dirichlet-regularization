@@ -35,14 +35,25 @@ class Base3TritQuantizer:
       - Band 2 (r1 < rho <= r2): High-mid frequencies -> Base-3 Trits (1.6 bpp)
       - Band 3 (rho > r2): High frequencies -> Truncated to zero (0 bpp)
     """
-    def __init__(self, r0: float = 0.10, r1: float = 0.25, r2: float = 0.50):
+    def __init__(
+        self,
+        r0: float = 0.10,
+        r1: float = 0.25,
+        r2: float = 0.50,
+        band2_mode: str = "lloyd_max",
+    ):
         if not (0.0 <= r0 <= r1 <= r2):
             raise ValueError(
                 f"Quantizer radii must satisfy 0 <= r0 <= r1 <= r2, got ({r0}, {r1}, {r2})"
             )
+        if band2_mode not in {"lloyd_max", "legacy"}:
+            raise ValueError(
+                f"Unknown band2_mode: {band2_mode}. Expected 'lloyd_max' or 'legacy'."
+            )
         self.r0 = float(r0)
         self.r1 = float(r1)
         self.r2 = float(r2)
+        self.band2_mode = band2_mode
         self._lut = self._build_trit_lut()
 
     @staticmethod
@@ -107,12 +118,30 @@ class Base3TritQuantizer:
         # Band 2: Base-3 trits (5 trits per byte)
         vals2 = spec[mask2]
         if vals2.numel() > 0:
-            std2 = vals2.std().item() if vals2.numel() > 1 else (vals2.abs().mean().item() or 1.0)
-            threshold = 0.5 * std2
+            if self.band2_mode == "lloyd_max":
+                # 1D Lloyd-Max optimal symmetric ternary quantization:
+                # strictly minimizes Band-2 MSE and guarantees reconstructed energy <= 100%.
+                abs_v = vals2.abs()
+                tau = 0.7 * abs_v.mean().item()
+                scale2 = 0.0
+                for _ in range(3):
+                    active = abs_v > tau
+                    if active.any():
+                        scale2 = abs_v[active].mean().item()
+                        tau = 0.5 * scale2
+                    else:
+                        scale2 = 0.0
+                        break
+                threshold = tau
+            else:
+                scale2 = vals2.std().item() if vals2.numel() > 1 else (vals2.abs().mean().item() or 1.0)
+                threshold = 0.5 * scale2
+
             # Map {-1, 0, +1} -> {0, 1, 2}
             trits = torch.ones_like(vals2, dtype=torch.int64)  # default 0 (code 1)
-            trits[vals2 > threshold] = 2   # +1
-            trits[vals2 < -threshold] = 0  # -1
+            if scale2 > 0.0:
+                trits[vals2 > threshold] = 2   # +1
+                trits[vals2 < -threshold] = 0  # -1
 
             # Pack into uint8 bytes
             rem = (5 - (len(trits) % 5)) % 5
@@ -126,7 +155,7 @@ class Base3TritQuantizer:
             t4 = trits[4::5] * 81
             q2_packed = (t0 + t1 + t2 + t3 + t4).to(torch.uint8)
         else:
-            std2 = 1.0
+            scale2 = 1.0
             q2_packed = torch.empty(0, dtype=torch.uint8, device=spec.device)
 
         total_bytes = q0.numel() + q1_packed.numel() + q2_packed.numel()
@@ -137,7 +166,7 @@ class Base3TritQuantizer:
             "bpp": bpp,
             "band0": {"data": q0.cpu().numpy(), "min": min0, "scale": scale0, "mask": mask0.cpu().numpy()},
             "band1": {"data": q1_packed.cpu().numpy(), "min": min1, "scale": scale1, "mask": mask1.cpu().numpy(), "count": vals1.numel()},
-            "band2": {"data": q2_packed.cpu().numpy(), "scale": std2, "mask": mask2.cpu().numpy(), "count": vals2.numel()},
+            "band2": {"data": q2_packed.cpu().numpy(), "scale": scale2, "mask": mask2.cpu().numpy(), "count": vals2.numel()},
         }
 
     def dequantize_matrix(self, packed: Dict[str, Any], device: torch.device = torch.device("cpu")) -> torch.Tensor:

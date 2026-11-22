@@ -79,6 +79,18 @@ def get_kernel_lib():
 
         c_lib.c_spectral_dma_wait_prefetch.argtypes = []
         c_lib.c_spectral_dma_wait_prefetch.restype = None
+
+        c_lib.c_spectral_matvec_direct.argtypes = [
+            ctypes.c_int, ctypes.c_int,
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            ctypes.c_float, ctypes.c_float,
+            ctypes.c_float, ctypes.c_float,
+            ctypes.c_float,
+            ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p,
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+        ]
+        c_lib.c_spectral_matvec_direct.restype = None
         return c_lib
     except Exception:
         return None
@@ -237,3 +249,39 @@ class TestCKernelParity:
             c_lib.c_spectral_cleanup()
             # Second cleanup must be a safe no-op
             c_lib.c_spectral_cleanup()
+
+    def test_direct_spectral_matvec_parity(self):
+        """Tests zero-reconstruction O(M+N) SRAM C spectral matvec on power-of-2 and non-power-of-2 shapes."""
+        c_lib = get_kernel_lib()
+        if c_lib is None:
+            pytest.skip("C kernel shared library not available on this platform")
+
+        quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
+        for M, N in [(256, 64), (64, 64), (48, 36)]:
+            torch.manual_seed(M + N)
+            w = torch.randn(M, N, dtype=torch.float32) * 0.1
+            x = torch.randn(N, dtype=torch.float32)
+            packed = quantizer.quantize_matrix(dct2d(w))
+            w_rec = idct2d(quantizer.dequantize_matrix(packed))
+            y_ref = (x @ w_rec.t()).numpy()
+
+            b0 = packed["band0"]["data"].tobytes()
+            b1 = packed["band1"]["data"].tobytes()
+            b2 = packed["band2"]["data"].tobytes()
+            m0 = np.where(packed["band0"]["mask"].reshape(-1))[0].astype(np.int32)
+            m1 = np.where(packed["band1"]["mask"].reshape(-1))[0].astype(np.int32)
+            m2 = np.where(packed["band2"]["mask"].reshape(-1))[0].astype(np.int32)
+            x_np = x.contiguous().numpy()
+            y_c = np.zeros(M, dtype=np.float32)
+            work = np.zeros(N + M + 2 * max(M, N), dtype=np.float32)
+
+            c_lib.c_spectral_matvec_direct(
+                M, N, len(m0), len(m1), len(m2),
+                float(packed["band0"]["min"]), float(packed["band0"]["scale"]),
+                float(packed["band1"]["min"]), float(packed["band1"]["scale"]),
+                float(packed["band2"]["scale"]),
+                b0, b1, b2, m0.ctypes.data, m1.ctypes.data, m2.ctypes.data,
+                x_np.ctypes.data, y_c.ctypes.data, work.ctypes.data,
+            )
+            max_diff = float(np.max(np.abs(y_ref - y_c)))
+            assert max_diff < 1e-5, f"Direct matvec mismatch for ({M},{N}): {max_diff}"
