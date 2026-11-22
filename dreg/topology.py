@@ -6,7 +6,7 @@ to eliminate permutation invariance and concentrate energy into low spatial freq
 """
 
 import math
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -17,6 +17,8 @@ def get_grid_dimensions(n: int) -> Tuple[int, int]:
     Finds the integer factor pair (H, W) such that H * W = n
     with the aspect ratio closest to 1.0 (square-like 2D cortical lattice).
     """
+    if n <= 0:
+        raise ValueError(f"n must be a positive integer, got {n}")
     sqrt_n = int(math.isqrt(n))
     for h in range(sqrt_n, 0, -1):
         if n % h == 0:
@@ -32,7 +34,7 @@ def dirichlet_energy_2d(
     """
     Computes the 2D Dirichlet Harmonic Energy of a weight matrix.
 
-    Variational form (continuous limit):
+    Variational form (discrete unit lattice normalized by 2*M*N):
         E_var(W) = 1/(2*M*N) * sum_{(u,v) in E} ||w_u - w_v||^2
 
     Implementation note — factor 2:
@@ -41,15 +43,15 @@ def dirichlet_energy_2d(
         mode (``sum_sq / num_edges``) is asymptotically equal to ``E_var``
         for large matrices since ``num_edges ≈ 2*M*N``.  Both modes are
         monotonic in roughness; only the absolute scale differs by ~2×.
-        All published TinyStories sweeps use ``'numel'`` consistently.
 
     Args:
         weight: Tensor of shape (out_features, in_features)
-        grid_shape: Optional (H, W) tuple to reshape either dimension into a 2D sheet.
-                    If None, uses the natural (out_features, in_features) grid.
+        grid_shape: Optional (H, W) tuple. If it equals ``weight.shape``, the
+                    natural 2D grid is used. If ``H * W`` matches ``weight.shape[0]``
+                    or ``weight.shape[1]``, that axis is reshaped onto a 2D sheet.
         normalization: Normalization mode for the energy scalar:
             - 'numel' (default): Normalizes by total elements (M * N). Backward-compatible.
-              Equals 2× the variational form. Used for all TinyStories results.
+              Equals 2× the variational form.
             - 'edges': Normalizes by the exact number of grid edges ((M-1)*N + M*(N-1)),
               providing scale-invariant roughness estimation across varying matrix shapes.
               Asymptotically equal to the variational form.
@@ -60,13 +62,16 @@ def dirichlet_energy_2d(
     """
     if grid_shape is not None:
         h, w = grid_shape
-        # Embed rows or columns onto 2D cortical sheet
-        if weight.shape[0] == h * w:
-            sheet = weight.view(h, w, -1)
-        elif weight.shape[1] == h * w:
-            sheet = weight.view(-1, h, w).permute(1, 2, 0)
-        else:
+        if weight.dim() == 2 and (h, w) == (weight.shape[0], weight.shape[1]):
             sheet = weight
+        elif weight.shape[0] == h * w:
+            sheet = weight.reshape(h, w, -1)
+        elif weight.shape[1] == h * w:
+            sheet = weight.reshape(-1, h, w).permute(1, 2, 0)
+        else:
+            raise ValueError(
+                f"grid_shape {grid_shape} is incompatible with weight shape {tuple(weight.shape)}"
+            )
     else:
         sheet = weight
 
@@ -86,9 +91,9 @@ def dirichlet_energy_2d(
         raise ValueError(f"Unsupported weight tensor shape for Dirichlet energy: {sheet.shape}")
 
     if normalization == "numel":
-        return sum_sq / (sheet.numel() + 1e-8)
+        return sum_sq / max(sheet.numel(), 1)
     elif normalization == "edges":
-        return sum_sq / (max(num_edges, 1) + 1e-8)
+        return sum_sq / max(num_edges, 1)
     elif normalization == "none":
         return sum_sq
     else:
@@ -98,30 +103,65 @@ def dirichlet_energy_2d(
 class DirichletLoss(nn.Module):
     """
     PyTorch loss wrapper for Dirichlet harmonic pinning.
-    Traverses linear projections and accumulates topological gradient penalty.
+    Traverses 2D linear projections and accumulates topological gradient penalty.
+
+    By default, ``nn.Embedding`` layers and modules matching ``exclude_names``
+    (e.g. ``lm_head``) are skipped because token indices have no spatial topology.
+    Frozen weights (``requires_grad=False``) are skipped and tied weights are
+    deduplicated by storage pointer.
     """
-    def __init__(self, weight_decay: float = 0.01, normalization: str = "numel"):
+    def __init__(
+        self,
+        weight_decay: float = 0.01,
+        normalization: str = "numel",
+        exclude_embeddings: bool = True,
+        exclude_names: Tuple[str, ...] = ("lm_head",),
+    ):
         super().__init__()
         self.weight_decay = weight_decay
         self.normalization = normalization
+        self.exclude_embeddings = exclude_embeddings
+        self.exclude_names = tuple(n.lower() for n in exclude_names)
 
-    def forward(self, modules: Iterable[nn.Module]) -> torch.Tensor:
+    def _is_excluded(self, name: str, mod: nn.Module) -> bool:
+        if self.exclude_embeddings and isinstance(mod, nn.Embedding):
+            return True
+        if name:
+            leaf = name.rsplit(".", 1)[-1].lower()
+            if any(leaf == ex or ex in name.lower() for ex in self.exclude_names):
+                return True
+        return False
+
+    def forward(self, target: Union[nn.Module, Iterable[nn.Module]]) -> torch.Tensor:
+        if isinstance(target, nn.Module):
+            named_iter = target.named_modules()
+        else:
+            named_iter = (("", mod) for mod in target)
+
         total_energy = None
         count = 0
-        for mod in modules:
-            if hasattr(mod, "weight") and mod.weight is not None and mod.weight.dim() == 2:
-                if total_energy is None:
-                    total_energy = torch.tensor(0.0, device=mod.weight.device)
-                total_energy = total_energy + dirichlet_energy_2d(mod.weight, normalization=self.normalization)
-                count += 1
-        if total_energy is None:
-            # No 2-D weights found — return CPU scalar (no device to infer).
-            # Caller adds this to a loss that may live on any device; returning
-            # a Python float-equivalent 0-D tensor keeps the graph disconnected
-            # and avoids device mismatch in the common "no linear" edge case.
+        seen_ptrs = set()
+
+        for name, mod in named_iter:
+            if self._is_excluded(name, mod):
+                continue
+            weight = getattr(mod, "weight", None)
+            if weight is None or not isinstance(weight, torch.Tensor) or weight.dim() != 2:
+                continue
+            if not weight.requires_grad:
+                continue
+            ptr = weight.data_ptr()
+            if ptr in seen_ptrs:
+                continue
+            seen_ptrs.add(ptr)
+
+            if total_energy is None:
+                total_energy = torch.tensor(0.0, device=weight.device, dtype=weight.dtype)
+            total_energy = total_energy + dirichlet_energy_2d(weight, normalization=self.normalization)
+            count += 1
+
+        if total_energy is None or count == 0:
             return torch.tensor(0.0)
-        if count == 0:
-            return total_energy
         return self.weight_decay * (total_energy / count)
 
 

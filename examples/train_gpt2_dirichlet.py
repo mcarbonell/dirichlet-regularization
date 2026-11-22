@@ -6,7 +6,7 @@ pinning on dense projections (QKV attention & FFN expansions) to induce
 spectral compressibility without sacrificing dense linguistic expressivity.
 
 Compares:
-  1. Base Pre-trained GPT-2 (FP32 vs 0.945 bpp TritQ)
+  1. Base Pre-trained GPT-2 (FP32 vs calibrated Base-3 TritQ)
   2. Standard Fine-Tuned GPT-2 without Dirichlet penalty (lambda = 0.0)
   3. Dirichlet Fine-Tuned GPT-2 (lambda = lambda_topo, with optional Annealing)
 
@@ -150,10 +150,10 @@ def get_training_batches(
     seq_len: int = 128,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Creates prompt text corpus for fine-tuning.
-    Uses representative sample narratives to avoid required internet access.
+    Creates disjoint synthetic train/validation text corpora for quick offline smoke tests.
+    For benchmark-grade language modeling, pass a real corpus (e.g., TinyStories or WikiText-2).
     """
-    sample_texts = [
+    train_texts = [
         "Artificial intelligence and deep learning models require vast amounts of memory to store parameters. "
         "Quantization techniques attempt to compress these matrices to lower bit representations. "
         "Topological Dirichlet regularization imposes spatial smoothness across weight coordinates, "
@@ -161,20 +161,20 @@ def get_training_batches(
         "The quick brown fox jumps over the lazy dog in the sunny afternoon near the tranquil riverbank. "
         "Scientists have discovered that cortical structures exhibit continuous receptive fields where "
         "neighboring neurons share strongly correlated responses to visual and auditory stimuli.",
-        "Generative language modeling has transformed computer science and information retrieval across industries. "
-        "However, deploying these neural networks on ultra-low-power edge microcontrollers with sub-1 megabyte "
-        "of internal SRAM requires extreme compression rates below one bit per parameter.",
     ]
-    # Repeat and tokenize
-    text_corpus = " ".join(sample_texts * 40)
-    tokens = tokenizer.encode(text_corpus, return_tensors="pt")[0]
+    val_texts = [
+        "Generative language modeling has transformed computer science and information retrieval across industries. "
+        "Deploying neural networks on low-power edge microcontrollers with strict SRAM budgets requires "
+        "combining structured weight regularization with spectral quantization and streaming kernels.",
+        "Spectral graph theory links the discrete Laplacian over a two-dimensional lattice directly to "
+        "the Type-II Discrete Cosine Transform, explaining why penalizing adjacent weight differences "
+        "suppresses high-frequency variance across dense linear projections.",
+    ]
+    train_tok = tokenizer.encode(" ".join(train_texts * 40), return_tensors="pt")[0]
+    val_tok = tokenizer.encode(" ".join(val_texts * 20), return_tensors="pt")[0]
 
-    num_tokens = (len(tokens) // seq_len) * seq_len
-    tokens = tokens[:num_tokens].view(-1, seq_len)
-
-    split_idx = int(0.80 * len(tokens))
-    train_tokens = tokens[:split_idx]
-    val_tokens = tokens[split_idx:]
+    train_tokens = train_tok[: (len(train_tok) // seq_len) * seq_len].view(-1, seq_len)
+    val_tokens = val_tok[: (len(val_tok) // seq_len) * seq_len].view(-1, seq_len)
     return train_tokens, val_tokens
 
 
@@ -226,6 +226,9 @@ def fine_tune_gpt2(
         outputs = model(batch, labels=batch)
         ce_loss = outputs.loss
 
+        if scheduler is not None:
+            scheduler.step()
+
         loss = ce_loss
         if is_topographic and topo_loss_fn is not None:
             dense_weights = [w for _, w in get_gpt2_dense_weights(model)]
@@ -240,9 +243,6 @@ def fine_tune_gpt2(
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        if scheduler is not None:
-            scheduler.step()
-
         step += 1
 
     return model
@@ -254,7 +254,7 @@ def main():
     parser.add_argument("--steps", type=int, default=50, help="Fine-tuning steps")
     parser.add_argument("--batch-size", type=int, default=4, help="Batch size")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
-    parser.add_argument("--topo-lambda", type=float, default=0.05, help="Dirichlet regularization strength")
+    parser.add_argument("--topo-lambda", type=float, default=15.0, help="Dirichlet regularization strength")
     parser.add_argument(
         "--annealing",
         type=str,
@@ -262,12 +262,12 @@ def main():
         choices=["none", "step_cooldown", "cosine"],
         help="Dirichlet annealing schedule",
     )
-    parser.add_argument("--cooldown-ratio", type=float, default=0.20, help="Fraction of steps for terminal cooldown")
+    parser.add_argument("--cooldown-ratio", type=float, default=0.20, help="Fraction of final steps for cooldown")
     parser.add_argument("--output-json", type=str, default="gpt2_dirichlet_results.json", help="Path to save results")
     args = parser.parse_args()
 
     print("=" * 85)
-    print(" GPT-2 (124M) DIRICHLET TOPOGRAPHIC FINE-TUNING & SUB-1.0 BPP AUDIT")
+    print(" GPT-2 (124M) DIRICHLET TOPOGRAPHIC FINE-TUNING & TRITQ AUDIT")
     print(f" Model: {args.model_name} | Steps: {args.steps} | Lambda: {args.topo_lambda} | Annealing: {args.annealing}")
     print("=" * 85)
 
@@ -276,12 +276,12 @@ def main():
 
     # Load Tokenizer & Model
     print(f"[*] Loading {args.model_name} architecture & weights...")
+    tokenizer = None
     try:
         tokenizer = GPT2Tokenizer.from_pretrained(args.model_name)
         base_model = GPT2LMHeadModel.from_pretrained(args.model_name).to(device)
     except Exception as e:
-        print(f"[!] Warning: Could not download pretrained weights ({e}). Initializing standard GPT-2 config.")
-        tokenizer = GPT2Tokenizer.from_pretrained("gpt2") if "tokenizer" in locals() else None
+        print(f"[!] Warning: Could not download pretrained weights ({e}). Using random GPT-2 config & synthetic tokens.")
         cfg = GPT2Config(
             vocab_size=50257,
             n_positions=512,
@@ -294,11 +294,16 @@ def main():
     total_params = sum(p.numel() for p in base_model.parameters())
     print(f"[*] Total Model Parameters: {total_params:,}")
 
-    # Tokenize fine-tuning corpus
-    train_tokens, val_tokens = get_training_batches(tokenizer, num_samples=200, seq_len=128)
+    # Tokenize fine-tuning corpus (or fallback to synthetic tokens when offline)
+    if tokenizer is not None:
+        train_tokens, val_tokens = get_training_batches(tokenizer, num_samples=200, seq_len=128)
+    else:
+        torch.manual_seed(42)
+        train_tokens = torch.randint(0, 1000, (32, 128))
+        val_tokens = torch.randint(0, 1000, (8, 128))
     print(f"[*] Prepared fine-tuning corpus: {len(train_tokens)} train batches, {len(val_tokens)} val batches.")
 
-    quantizer = Base3TritQuantizer()
+    quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
 
     # 1. Base Model Audit (Pre-trained)
     print("\n--- [1/3] Auditing Base Pre-trained GPT-2 ---")
@@ -351,32 +356,34 @@ def main():
     print(f"[*] Topographic FP32 PPL: {topo_fp32_ppl:.2f} | Quant PPL ({bpp_topo:.3f} bpp): {topo_q_ppl:.2f} | E_D: {topo_ed:.6f}")
 
     # Qualitative text sample
-    sample_prompt = "In a surprising discovery, scientists found"
-    print("\n--- Qualitative Text Generation (Quantized Models) ---")
-    print(f"Prompt: \"{sample_prompt}\"")
-    try:
-        sample_std = generate_text_sample(q_std_model, tokenizer, prompt=sample_prompt, device=device)
-        print(f"\n[Standard Quantized Output]:\n{sample_std}\n")
-        sample_topo = generate_text_sample(q_topo_model, tokenizer, prompt=sample_prompt, device=device)
-        print(f"[Topographic Quantized Output]:\n{sample_topo}\n")
-    except Exception as e:
-        print(f"[!] Generation warning: {e}")
+    if tokenizer is not None:
+        sample_prompt = "In a surprising discovery, scientists found"
+        print("\n--- Qualitative Text Generation (Quantized Models) ---")
+        print(f"Prompt: \"{sample_prompt}\"")
+        try:
+            sample_std = generate_text_sample(q_std_model, tokenizer, prompt=sample_prompt, device=device)
+            print(f"\n[Standard Quantized Output]:\n{sample_std}\n")
+            sample_topo = generate_text_sample(q_topo_model, tokenizer, prompt=sample_prompt, device=device)
+            print(f"[Topographic Quantized Output]:\n{sample_topo}\n")
+        except Exception as e:
+            print(f"[!] Generation warning: {e}")
 
     # Comparative Summary Table
     roughness_drop = (1.0 - (topo_ed / (std_ed + 1e-12))) * 100.0
     quant_adv = std_q_ppl - topo_q_ppl
+    quant_col = f"Quant PPL ({bpp_topo:.3f} bpp)"
 
     print("=" * 95)
     print(" GPT-2 (124M) DIRICHLET COMPRESSION AUDIT SUMMARY")
     print("=" * 95)
-    print(f"{'Condition':<28} | {'Dirichlet E_D':<14} | {'FP32 Val PPL':<14} | {'Quant PPL (0.945 bpp)':<22} | {'Delta PPL'}")
+    print(f"{'Condition':<28} | {'Dirichlet E_D':<14} | {'FP32 Val PPL':<14} | {quant_col:<22} | {'Delta PPL'}")
     print("-" * 95)
     print(f"{'Base Pretrained (Unmodified)':<28} | {base_ed:.6f}{'':<6} | {base_fp32_ppl:.2f}{'':<9} | {base_q_ppl:.2f}{'':<17} | +{base_q_ppl - base_fp32_ppl:.2f}")
     print(f"{'Standard Fine-Tuned (λ=0)':<28} | {std_ed:.6f}{'':<6} | {std_fp32_ppl:.2f}{'':<9} | {std_q_ppl:.2f}{'':<17} | +{std_q_ppl - std_fp32_ppl:.2f}")
     print(f"{f'Topographic (λ={args.topo_lambda})':<28} | {topo_ed:.6f}{'':<6} | {topo_fp32_ppl:.2f}{'':<9} | {topo_q_ppl:.2f}{'':<17} | +{topo_q_ppl - topo_fp32_ppl:.2f}")
     print("-" * 95)
     print(f"[*] Weight Roughness Reduction:       {roughness_drop:.1f}%")
-    print(f"[*] Quantized Perplexity Advantage:   -{quant_adv:.2f} PPL under {bpp_topo:.3f} bpp")
+    print(f"[*] Quantized Perplexity Advantage:   {quant_adv:+.2f} PPL under {bpp_topo:.3f} bpp")
     print(f"[*] Compression Ratio:                {ratio_base:.2f}x physical compression")
     print("=" * 95)
 

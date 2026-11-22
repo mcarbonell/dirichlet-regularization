@@ -1,12 +1,13 @@
 cff-version: 1.2.0
 title: "Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization"
-type: article
+type: software
+version: "1.0.0"
 authors:
   - family-names: Carbonell Martínez
     given-names: Mario Raúl
     affiliation: "Independent Researcher"
     email: "marioraulcarbonell@gmail.com"
-date-released: 2026-10-03
+date-released: 2026-11-22
 url: "https://github.com/mcarbonell/dirichlet-regularization"
 repository-code: "https://github.com/mcarbonell/dirichlet-regularization"
 license: MIT
@@ -17,4 +18,4 @@ keywords:
   - discrete-cosine-transform
   - quantization
   - edge-ai
-abstract: "Dirichlet Weight Regularization (dreg) — a continuous 2D Dirichlet harmonic energy penalty that breaks permutation symmetry, concentrates DCT spectral energy, and enables sub-1.0 bpp Base-3 trit quantization with <1 MB SRAM streaming via a zero-copy DMA micro-kernel. Validated on TinyStories-10M (72% roughness reduction, 7.25 PPL gain at 0.945 bpp) and MNIST MLP (+11% low-pass retention)."
+abstract: "Dirichlet Weight Regularization (dreg) — a discrete 2D Dirichlet harmonic energy penalty that breaks permutation symmetry, concentrates 2D-DCT spectral energy, and improves hierarchical Base-3 trit spectral quantization (.tritq) across a configurable 0.43–3.77 bpp rate-distortion frontier. Validated on TinyStories-10M (72.1% roughness reduction; 6.76–7.25 PPL gain at calibrated 1.638 bpp and 7.02 PPL gain at 2.181 bpp) and MNIST MLPs (-84.5% roughness; +10.72% low-pass truncation accuracy), paired with a portable C11 zero-copy DMA micro-kernel."

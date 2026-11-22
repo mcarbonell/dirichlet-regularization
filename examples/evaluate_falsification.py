@@ -1,10 +1,11 @@
 """
-Example: Falsification Test — Topographic vs Standard under Sub-1.0 bpp Quantization
-===================================================================================
-Reproduces the critical falsification experiment:
+Example: Falsification Test — Topographic vs Standard under Base-3 Trit Quantization
+====================================================================================
+Reproduces the controlled falsification experiment on CPU:
   - Model A (Topographic): Trained with Dirichlet harmonic pinning.
   - Model B (Standard): Trained without spatial constraints (standard permutation-invariant).
-Both models undergo identical 4-band Base-3 Quantum Trit Quantization.
+Both models undergo identical 4-band Base-3 Trit Quantization (defaulting to the
+calibrated paper radii r0=0.15, r1=0.40, r2=1.00 -> ~1.64 bpp; customizable via CLI).
 Metrics, bit-rates, and status verdicts are computed dynamically without hardcoded labels.
 """
 
@@ -115,12 +116,15 @@ def determine_status(ppl_fp32: float, ppl_quant: float) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Falsification benchmark: Topographic vs Standard under Sub-1.0 bpp Quantization. "
+        description="Falsification benchmark: Topographic vs Standard under Base-3 Trit Quantization. "
         "Requires >=5 epochs and lambda≈15–30 to observe separation; smaller values are washed out by Adam."
     )
     parser.add_argument("--lambda-val", type=float, default=30.0, help="Dirichlet regularization strength (default: 30.0; use >=15 for visible effect)")
     parser.add_argument("--epochs", type=int, default=8, help="Number of training epochs (default: 8; use >=5 to see separation)")
     parser.add_argument("--seed", type=int, default=1337, help="Random seed (default: 1337)")
+    parser.add_argument("--r0", type=float, default=0.15, help="Band 0 radial cutoff (default: 0.15, calibrated regime)")
+    parser.add_argument("--r1", type=float, default=0.40, help="Band 1 radial cutoff (default: 0.40, calibrated regime)")
+    parser.add_argument("--r2", type=float, default=1.00, help="Band 2 radial cutoff (default: 1.00, calibrated regime)")
     args = parser.parse_args()
 
     if args.epochs < 5:
@@ -186,7 +190,7 @@ def main():
     ppl_topo_fp32, _ = evaluate_ppl(model_topo, test_batches)
     ppl_std_fp32, _ = evaluate_ppl(model_std, test_batches)
 
-    quantizer = Base3TritQuantizer()
+    quantizer = Base3TritQuantizer(r0=args.r0, r1=args.r1, r2=args.r2)
     model_topo_trit, bpp_topo, ratio_topo = quantize_and_reconstruct_model(model_topo, quantizer)
     model_std_trit, bpp_std, ratio_std = quantize_and_reconstruct_model(model_std, quantizer)
 
@@ -222,9 +226,9 @@ def main():
               f"(gap grows with epochs & matrix size; see reproduce_all.py and paper 10M results).")
     else:
         print(f"[i] Quantization Δ topo {delta_topo:.2f} vs std {delta_std:.2f} — at CPU-tiny scale (96×96, "
-              f"{args.epochs} epochs) the PPL gap is small/noisy. "
-              f"Run with --epochs 20 or see `examples/reproduce_all.py` (spectral 7.1×) "
-              f"and paper Table 2 (10M, 6.76 PPL gain) for the robust effect.")
+              f"{args.epochs} epochs) this toy grammar is easily memorized so PPL separation is small. "
+              f"See `examples/reproduce_all.py` (trained spectral proof) "
+              f"and paper Tables 2 & 5 (TinyStories 10M, 6.76–7.25 PPL gain at 1.638 bpp) for the large-scale effect.")
     print("[i] For the architecture-agnostic spectral proof, run:  python examples/reproduce_all.py")
     print("=" * 85)
 

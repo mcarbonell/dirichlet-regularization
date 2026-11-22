@@ -146,13 +146,16 @@ def analyze_spectral_energy(model: nn.Module) -> dict:
     }
 
 
-def quantize_and_evaluate(model: nn.Module, loader: DataLoader, device: torch.device) -> float:
+def quantize_and_evaluate(model: nn.Module, loader: DataLoader, device: torch.device):
     """
-    Evaluate model under Base-3 Trit spectral quantization.
+    Evaluate model under Base-3 Trit spectral quantization (calibrated radii).
     Replaces each Linear layer's weight with its quantized & reconstructed version.
+    Returns (accuracy, measured_bpp).
     """
     q_model = copy.deepcopy(model)
     quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.0)
+    total_bits = 0.0
+    total_weights = 0
 
     with torch.no_grad():
         for mod in q_model.modules():
@@ -160,11 +163,14 @@ def quantize_and_evaluate(model: nn.Module, loader: DataLoader, device: torch.de
                 w = mod.weight.detach()
                 spec = dct2d(w)
                 packed = quantizer.quantize_matrix(spec)
+                total_bits += packed["bpp"] * spec.numel()
+                total_weights += spec.numel()
                 rec_spec = quantizer.dequantize_matrix(packed, device=device)
                 w_rec = idct2d(rec_spec)
                 mod.weight.copy_(w_rec)
 
-    return evaluate(q_model, loader, device)
+    measured_bpp = total_bits / max(total_weights, 1)
+    return evaluate(q_model, loader, device), measured_bpp
 
 
 def spectral_truncate_and_evaluate(model: nn.Module, loader: DataLoader, device: torch.device, keep_radius: float = 0.40) -> float:
@@ -298,13 +304,15 @@ def main():
     stats_std = analyze_spectral_energy(std_model)
     stats_topo = analyze_spectral_energy(topo_model)
 
-    print("[*] Evaluating sub-1.0 bpp Base-3 Trit Quantization tolerance...")
-    q_acc_std = quantize_and_evaluate(std_model, test_loader, device) * 100.0
-    q_acc_topo = quantize_and_evaluate(topo_model, test_loader, device) * 100.0
+    print("[*] Evaluating calibrated Base-3 Trit Quantization tolerance...")
+    q_acc_std_raw, measured_bpp = quantize_and_evaluate(std_model, test_loader, device)
+    q_acc_topo_raw, _ = quantize_and_evaluate(topo_model, test_loader, device)
+    q_acc_std = q_acc_std_raw * 100.0
+    q_acc_topo = q_acc_topo_raw * 100.0
 
     drop_std = acc_std - q_acc_std
     drop_topo = acc_topo - q_acc_topo
-    print("[*] Evaluating low-pass spectral truncation (r <= 0.40, ~20% lowest DCT components)...")
+    print("[*] Evaluating low-pass spectral truncation (r <= 0.40, ~13% lowest DCT components)...")
     trunc_acc_std = spectral_truncate_and_evaluate(std_model, test_loader, device, keep_radius=0.40) * 100.0
     trunc_acc_topo = spectral_truncate_and_evaluate(topo_model, test_loader, device, keep_radius=0.40) * 100.0
     trunc_drop_std = acc_std - trunc_acc_std
@@ -318,13 +326,18 @@ def main():
     print(f"{'Low-Freq Energy (r <= 0.40)':<30} | {stats_std['low_freq_pct']:6.2f}%{'':<13} | {stats_topo['low_freq_pct']:6.2f}%{'':<13}")
     print(f"{'Low-Pass Acc (r <= 0.40)':<30} | {trunc_acc_std:6.2f}%{'':<13} | {trunc_acc_topo:6.2f}%{'':<13}")
     print(f"{'Low-Pass Drop (Delta)':<30} | -{trunc_drop_std:5.2f}%{'':<13} | -{trunc_drop_topo:5.2f}%{'':<13}")
-    print(f"{'Quantized Accuracy (0.94 bpp)':<30} | {q_acc_std:6.2f}%{'':<13} | {q_acc_topo:6.2f}%{'':<13}")
+    q_label = f"Quantized Acc ({measured_bpp:.2f} bpp)"
+    print(f"{q_label:<30} | {q_acc_std:6.2f}%{'':<13} | {q_acc_topo:6.2f}%{'':<13}")
     print(f"{'Quantization Drop (Delta)':<30} | -{drop_std:5.2f}%{'':<13} | -{drop_topo:5.2f}%{'':<13}")
     print("-" * 78)
 
-    if trunc_drop_topo < trunc_drop_std:
-        gain = trunc_drop_std - trunc_drop_topo
-        print(f"[*] Result: Topographic MLP preserved +{gain:.2f}% higher accuracy under aggressive low-pass truncation.")
+    abs_gain = trunc_acc_topo - trunc_acc_std
+    rel_gain = trunc_drop_std - trunc_drop_topo
+    if rel_gain > 0:
+        print(
+            f"[*] Result: Topographic MLP achieved {abs_gain:+.2f}% higher low-pass accuracy "
+            f"({rel_gain:+.2f}% smaller drop relative to FP32)."
+        )
     print("=" * 78)
 
 

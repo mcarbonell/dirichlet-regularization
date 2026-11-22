@@ -198,6 +198,7 @@ def run_training(
     running_topo = 0.0
 
     model.train()
+    steps_since_log = 0
     while step < max_steps:
         try:
             inputs, targets = next(train_iter)
@@ -223,12 +224,13 @@ def run_training(
 
         running_ce += ce_loss.item()
         step += 1
+        steps_since_log += 1
 
         if step % eval_interval == 0 or step == max_steps:
             elapsed = time.time() - start_time
             tok_per_sec = (step * batch_size * seq_len) / max(elapsed, 1e-4)
-            avg_ce = running_ce / eval_interval
-            avg_topo = running_topo / eval_interval
+            avg_ce = running_ce / max(steps_since_log, 1)
+            avg_topo = running_topo / max(steps_since_log, 1)
             train_ppl = math.exp(min(avg_ce, 20.0))
             val_ppl = evaluate_model(model)
             print(
@@ -241,6 +243,7 @@ def run_training(
             )
             running_ce = 0.0
             running_topo = 0.0
+            steps_since_log = 0
 
     total_training_time = time.time() - start_time
     print(f"\n[+] Training finished in {total_training_time:.2f}s ({total_training_time/60:.1f} min)")
@@ -251,34 +254,39 @@ def run_training(
     mean_dirichlet = sum(m.dirichlet_energy().item() for m in linears) / max(len(linears), 1)
 
     print("\n" + "=" * 70)
-    print(f" SUB-1.0 BPP BASE-3 TRIT QUANTIZATION AUDIT ({scale} {model_type})")
+    print(f" CALIBRATED BASE-3 TRIT QUANTIZATION AUDIT ({scale} {model_type})")
     print("=" * 70)
     print(f"[*] Baseline FP32 Val Perplexity: {baseline_val_ppl:.2f}")
     print(f"[*] Mean Weight Dirichlet Energy: {mean_dirichlet:.6f}")
 
-    # 6. Base-3 Trit Quantization Simulation
+    # 6. Base-3 Trit Quantization Simulation (calibrated radii -> ~1.64 bpp on 10M)
     quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.0)
     q_model = copy.deepcopy(model)
+    total_bits = 0.0
+    total_weights = 0
 
     with torch.no_grad():
         for m in q_model.get_linear_projections():
             w = m.weight.detach()
             spec = dct2d(w)
             packed = quantizer.quantize_matrix(spec)
+            total_bits += packed["bpp"] * spec.numel()
+            total_weights += spec.numel()
             rec_spec = quantizer.dequantize_matrix(packed, device=device)
             rec_w = idct2d(rec_spec)
             m.weight.copy_(rec_w)
 
+    measured_bpp = total_bits / max(total_weights, 1)
     quantized_val_ppl = evaluate_model(q_model)
     delta_ppl = quantized_val_ppl - baseline_val_ppl
 
-    print(f"[*] Quantized (0.945 bpp) Val Perplexity: {quantized_val_ppl:.2f}")
+    print(f"[*] Quantized ({measured_bpp:.3f} bpp) Val Perplexity: {quantized_val_ppl:.2f}")
     print(f"[*] Perplexity Delta (Δ):              +{delta_ppl:.2f}")
     print("=" * 70)
 
-    # 6b. Qualitative Sample Generation
+    # 6b. Qualitative Sample Generation (FP32)
     try:
-        print("\n[*] Generating qualitative text sample...")
+        print("\n[*] Generating qualitative text sample (FP32)...")
         sample_prompt = "Once upon a time, there was a little girl named Lily."
         enc = tokenizer.encode(sample_prompt)
         prompt_ids = torch.tensor([enc.ids if hasattr(enc, "ids") else enc], dtype=torch.long, device=device)
@@ -288,7 +296,7 @@ def run_training(
     except Exception as e:
         print(f"[!] Sample generation warning: {e}")
 
-    # 7. Save Checkpoints
+    # 7. Save Checkpoints (passing the same quantizer used for evaluation)
     lambda_tag = f"_lambda{topo_lambda}" if is_topographic else "_standard"
     ckpt_name = f"tinystories_{scale}_{model_type.lower()}{lambda_tag}_{max_steps}s"
     pt_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.pt")
@@ -297,7 +305,7 @@ def run_training(
     torch.save(model.state_dict(), pt_path)
     import dataclasses
     cfg_dict = dataclasses.asdict(cfg)
-    TritQFormat.save(tritq_path, model.state_dict(), cfg_dict)
+    TritQFormat.save(tritq_path, model.state_dict(), cfg_dict, quantizer=quantizer)
     volume.commit()
     print(f"[+] Saved PyTorch checkpoint: {pt_path}")
     print(f"[+] Saved .tritq checkpoint:    {tritq_path} ({os.path.getsize(tritq_path) / 1024:.1f} KB)")

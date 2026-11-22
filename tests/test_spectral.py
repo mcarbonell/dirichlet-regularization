@@ -40,6 +40,11 @@ class TestDCTMatrix:
         d2 = dct_matrix_1d(16)
         assert d1.data_ptr() == d2.data_ptr()  # Same memory
 
+    def test_invalid_size_raises(self):
+        import pytest
+        with pytest.raises(ValueError, match="positive"):
+            dct_matrix_1d(0)
+
 
 class TestDCT2D:
     """Tests for the separable 2D-DCT and IDCT."""
@@ -124,3 +129,14 @@ class TestBlockDCTTiler:
             spec = tiler.tile_and_transform(w)
             rec = tiler.untile_and_reconstruct(spec, w.shape)
             assert torch.allclose(w, rec, atol=1e-4), f"Failed for block_size={bs}"
+
+    def test_invalid_block_size_and_pad_mode(self):
+        import pytest
+        with pytest.raises(ValueError, match="positive"):
+            BlockDCTTiler(block_size=0)
+        with pytest.raises(ValueError, match="pad_mode"):
+            BlockDCTTiler(block_size=8, pad_mode="invalid")
+        tiler = BlockDCTTiler(block_size=8, pad_mode="constant")
+        w = torch.randn(13, 19)
+        rec = tiler.untile_and_reconstruct(tiler.tile_and_transform(w), w.shape)
+        assert torch.allclose(w, rec, atol=1e-5)

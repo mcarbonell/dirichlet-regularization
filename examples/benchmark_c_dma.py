@@ -2,19 +2,24 @@
 Example: C Native Zero-Copy DMA Benchmark
 =========================================
 Benchmarks the low-level C micro-kernel (`spectral_dma_kernel.c`) with hardware
-double-buffering (Ping-Pong buffers), verifying bit-exact mathematical match (0.00000000)
-and measuring tokens/second throughput on CPU.
+double-buffering (Ping-Pong buffers), verifying float32 numerical parity (< 1e-5)
+and measuring decoding throughput on CPU.
 """
 
 import ctypes
 import os
+import sys
 import time
 
-import numpy as np
-import torch
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
-from dreg.quantization import Base3TritQuantizer
-from dreg.spectral import dct2d, dct_matrix_1d, idct2d
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+
+from dreg.quantization import Base3TritQuantizer  # noqa: E402
+from dreg.spectral import dct2d, dct_matrix_1d, idct2d  # noqa: E402
 
 
 def load_c_kernel():
@@ -43,6 +48,20 @@ def load_c_kernel():
     c_lib.c_spectral_cleanup.argtypes = []
     c_lib.c_spectral_cleanup.restype = None
 
+    c_lib.c_spectral_register_matrix.argtypes = [
+        ctypes.c_int, ctypes.c_int,
+        ctypes.c_int, ctypes.c_int,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        ctypes.c_float, ctypes.c_float,
+        ctypes.c_float, ctypes.c_float,
+        ctypes.c_float,
+        ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+        ctypes.c_void_p, ctypes.c_void_p,
+        ctypes.c_size_t,
+    ]
+    c_lib.c_spectral_register_matrix.restype = ctypes.c_int
+
     c_lib.c_spectral_decode_matrix_direct.argtypes = [
         ctypes.c_int, ctypes.c_int,
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
@@ -52,7 +71,7 @@ def load_c_kernel():
         ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p,
         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
         ctypes.c_void_p, ctypes.c_void_p,
-        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
     ]
     c_lib.c_spectral_decode_matrix_direct.restype = None
 
@@ -107,8 +126,8 @@ def main():
     temp_buf = np.zeros(M * N, dtype=np.float32)
     target_buf = np.zeros(M * N, dtype=np.float32)
 
-    # 2. Numerical Parity Test
-    print("\n[1/2] Verifying Bit-for-Bit Mathematical Parity against PyTorch...")
+    # 2. Numerical Parity Test (Direct + Async DMA Prefetch)
+    print("\n[1/2] Verifying Float32 Numerical Parity against PyTorch...")
     c_lib.c_spectral_decode_matrix_direct(
         M, N,
         len(m0_idx), len(m1_idx), len(m2_idx),
@@ -125,11 +144,30 @@ def main():
 
     c_reconstructed = target_buf.reshape(M, N)
     max_diff = np.max(np.abs(ref_w - c_reconstructed))
-    print(f"[*] Maximum Absolute Numerical Discrepancy: {max_diff:.8f}")
-    if max_diff < 1e-4:
-        print("[+] VERIFICATION PASSED: Bit-exact mathematical match verified.")
+    print(f"[*] Direct Decode Max Abs Discrepancy:   {max_diff:.8f}")
+
+    # Verify Async DMA worker thread path
+    async_target = np.zeros(M * N, dtype=np.float32)
+    c_lib.c_spectral_register_matrix(
+        0, 0, M, N,
+        len(m0_idx), len(m1_idx), len(m2_idx),
+        float(packed["band0"]["min"]), float(packed["band0"]["scale"]),
+        float(packed["band1"]["min"]), float(packed["band1"]["scale"]),
+        float(packed["band2"]["scale"]),
+        b0_bytes, b1_bytes, b2_bytes,
+        m0_idx.ctypes.data, m1_idx.ctypes.data, m2_idx.ctypes.data,
+        d_out_t_np.ctypes.data, d_in_np.ctypes.data,
+        0,
+    )
+    c_lib.c_spectral_dma_start_prefetch(0, async_target.ctypes.data, dct_buf.ctypes.data, temp_buf.ctypes.data)
+    c_lib.c_spectral_dma_wait_prefetch()
+    async_diff = np.max(np.abs(ref_w - async_target.reshape(M, N)))
+    print(f"[*] Async DMA Max Abs Discrepancy:       {async_diff:.8f}")
+
+    if max(max_diff, async_diff) < 1e-5:
+        print("[+] VERIFICATION PASSED: Float32 numerical parity verified (< 1e-5).")
     else:
-        print("[!] Note: Small numerical precision variance (expected in single-precision floating-point).")
+        print("[!] Note: Numerical variance exceeded 1e-5 tolerance.")
 
     # 3. High-Speed Throughput Benchmark
     print("\n[2/2] Benchmarking C Kernel Single Matrix Decode Speed...")
@@ -155,8 +193,8 @@ def main():
     latency_us = (elapsed / num_runs) * 1e6
     matrices_per_sec = num_runs / elapsed
 
-    # 6 transformer layers * 6 matrices/layer (Q, K, V, Out in Attn + Gate/Up, Down in SwiGLU MLP) = 36 projections/token
-    matrices_per_token = 6 * 6
+    # 6 transformer layers * 7 linear projections/layer (Q, K, V, Out + SwiGLU Gate, Up, Down) = 42 projections/token
+    matrices_per_token = 6 * 7
     tokens_per_sec = matrices_per_sec / float(matrices_per_token)
 
     print("\n" + "=" * 80)
@@ -165,8 +203,8 @@ def main():
     print(f"TritQ Bit Rate:               {packed['bpp']:.3f} bpp ({32.0 / packed['bpp']:.1f}x compression)")
     print(f"Single Matrix Decode Latency: {latency_us:.2f} µs")
     print(f"Decoding Throughput:          {matrices_per_sec:.1f} matrices/second")
-    print(f"Transformer L=6 Equivalent:   {tokens_per_sec:.1f} tokens/second")
-    print(f"Active SRAM Footprint:        {M * N * 4 / 1024 * 3:.1f} KB (Shared workspace)")
+    print(f"Transformer L=6 (42 mats):    {tokens_per_sec:.1f} tokens/second (decode-bound upper limit)")
+    print(f"Active Working Buffers:       {M * N * 4 / 1024 * 3:.1f} KB (dct + temp + target for {M}x{N})")
     print("=" * 80)
 
 

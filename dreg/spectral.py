@@ -6,12 +6,14 @@ to decouple inverse transform arithmetic O(B^3) from model width D.
 """
 
 import math
+import threading
 from collections import OrderedDict
 from typing import Tuple
 
 import torch
 
 _DCT_CACHE: OrderedDict[Tuple[int, torch.device, torch.dtype], torch.Tensor] = OrderedDict()
+_DCT_CACHE_LOCK = threading.Lock()
 _DCT_CACHE_MAXSIZE: int = 32
 
 
@@ -21,12 +23,16 @@ def dct_matrix_1d(n: int, device: torch.device = torch.device("cpu"), dtype: tor
         D_{k, i} = sqrt(2/n) * cos(pi * (2i + 1) * k / (2n)),  k > 0
         D_{0, i} = sqrt(1/n)
 
-    Uses vectorized construction and a bounded LRU cache (max 32 entries).
+    Uses vectorized construction and a thread-safe bounded LRU cache (max 32 entries).
     """
+    if n <= 0:
+        raise ValueError(f"DCT dimension n must be positive, got {n}")
+
     key = (n, device, dtype)
-    if key in _DCT_CACHE:
-        _DCT_CACHE.move_to_end(key)
-        return _DCT_CACHE[key]
+    with _DCT_CACHE_LOCK:
+        if key in _DCT_CACHE:
+            _DCT_CACHE.move_to_end(key)
+            return _DCT_CACHE[key]
 
     # Fully vectorized construction via broadcasting (no Python loop)
     k = torch.arange(n, device=device, dtype=dtype).unsqueeze(1)  # (n, 1)
@@ -37,11 +43,12 @@ def dct_matrix_1d(n: int, device: torch.device = torch.device("cpu"), dtype: tor
     d[0, :] *= math.sqrt(1.0 / n)
     d[1:, :] *= math.sqrt(2.0 / n)
 
-    # Bounded cache with LRU eviction
-    if len(_DCT_CACHE) >= _DCT_CACHE_MAXSIZE:
-        _DCT_CACHE.popitem(last=False)
-    _DCT_CACHE[key] = d
-    return d
+    with _DCT_CACHE_LOCK:
+        if key not in _DCT_CACHE:
+            if len(_DCT_CACHE) >= _DCT_CACHE_MAXSIZE:
+                _DCT_CACHE.popitem(last=False)
+            _DCT_CACHE[key] = d
+        return _DCT_CACHE[key]
 
 
 def dct2d(x: torch.Tensor) -> torch.Tensor:
@@ -72,20 +79,33 @@ class BlockDCTTiler:
     and applies local 2D-DCT transforms. Guarantees that decoding cost
     is strictly O(B^3) per block, solving the Amdahl scaling limit.
     """
-    def __init__(self, block_size: int = 64):
+    def __init__(self, block_size: int = 64, pad_mode: str = "replicate"):
+        if block_size <= 0:
+            raise ValueError(f"block_size must be positive, got {block_size}")
+        if pad_mode not in {"replicate", "constant"}:
+            raise ValueError(f"Unsupported pad_mode: {pad_mode}. Expected 'replicate' or 'constant'.")
         self.b = block_size
+        self.pad_mode = pad_mode
 
     def tile_and_transform(self, weight: torch.Tensor) -> torch.Tensor:
         """
         Pads weight to multiples of B, splits into (M/B, N/B, B, B) tiles,
-        and applies dct2d to each tile.
+        and applies dct2d to each tile. Uses replicate padding by default to
+        avoid artificial high-frequency step discontinuities at padded borders.
         """
         m, n = weight.shape
         pad_m = (self.b - (m % self.b)) % self.b
         pad_n = (self.b - (n % self.b)) % self.b
 
         if pad_m > 0 or pad_n > 0:
-            padded = torch.nn.functional.pad(weight, (0, pad_n, 0, pad_m))
+            if self.pad_mode == "replicate":
+                padded = torch.nn.functional.pad(
+                    weight.unsqueeze(0).unsqueeze(0),
+                    (0, pad_n, 0, pad_m),
+                    mode="replicate",
+                ).squeeze(0).squeeze(0)
+            else:
+                padded = torch.nn.functional.pad(weight, (0, pad_n, 0, pad_m))
         else:
             padded = weight
 

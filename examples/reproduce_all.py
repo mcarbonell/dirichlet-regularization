@@ -1,24 +1,32 @@
 """
 Master End-to-End Reproducibility Script
 ========================================
-Runs and verifies all core empirical and theoretical claims of the Dirichlet
-Regularization repository in a single reproducible execution:
+Runs and verifies core empirical and engineering claims of the Dirichlet
+Regularization (`dreg`) repository in a single reproducible execution:
   1. Full automated unit test suite verification
-  2. Native C Kernel bit-exact numerical parity check
-  3. Spectral mechanism proof: Energy compaction and relative error under quantization
-  4. Comparative baselines: SVD low-rank truncation and Random Orthogonal Rotations
+  2. Native C DMA Kernel float32 numerical parity check
+  3. Real training proof (Standard vs Dirichlet MLP): roughness, 2D-DCT compaction & TritQ error
+  4. Comparative controls on the trained weights: Random Orthogonal Rotation & SVD truncation
   5. Executive verification summary report
 """
 
+import os
 import subprocess
 import sys
 import time
 
-import numpy as np
-import torch
+# Ensure repository root is importable regardless of working directory / invocation path
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
-from dreg import (
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+import torch.nn as nn  # noqa: E402
+
+from dreg import (  # noqa: E402
     Base3TritQuantizer,
+    DirichletLoss,
     dct2d,
     dirichlet_energy_2d,
     idct2d,
@@ -36,21 +44,23 @@ def print_header(title: str):
 def step_1_run_test_suite():
     print_header("[Step 1/4] Running Complete Unit Test Suite via Pytest...")
     t0 = time.perf_counter()
-    result = subprocess.run([sys.executable, "-m", "pytest", "tests/", "-q"], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, "-m", "pytest", "tests/", "-q"], cwd=ROOT_DIR, capture_output=True, text=True)
     elapsed = time.perf_counter() - t0
+    summary_line = result.stdout.strip().splitlines()[-1].strip("= ") if result.stdout.strip() else ""
     print(result.stdout.strip())
     if result.returncode != 0:
         print("[!] Unit tests failed:")
         print(result.stderr)
-        return False
-    print(f"[+] 100% of unit tests PASSED in {elapsed:.2f}s.")
-    return True
+        return False, summary_line
+    print(f"[+] Unit test suite PASSED in {elapsed:.2f}s.")
+    return True, summary_line
 
 
 def step_2_verify_c_kernel_parity():
-    print_header("[Step 2/4] Verifying C DMA Kernel Mathematical Parity...")
+    print_header("[Step 2/4] Verifying C DMA Kernel Numerical Parity...")
     try:
         from examples.benchmark_c_dma import dct_matrix_1d, load_c_kernel
+
         c_lib = load_c_kernel()
         c_lib.c_spectral_init()
 
@@ -58,7 +68,7 @@ def step_2_verify_c_kernel_parity():
         torch.manual_seed(42)
         orig_w = torch.randn(M, N, dtype=torch.float32)
         spec = dct2d(orig_w)
-        quantizer = Base3TritQuantizer()
+        quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
         packed = quantizer.quantize_matrix(spec)
 
         ref_reconstructed = quantizer.dequantize_matrix(packed)
@@ -92,7 +102,7 @@ def step_2_verify_c_kernel_parity():
             b0_bytes, b1_bytes, b2_bytes,
             m0_idx.ctypes.data, m1_idx.ctypes.data, m2_idx.ctypes.data,
             d_out_t_np.ctypes.data, d_in_np.ctypes.data,
-            dct_buf.ctypes.data, temp_buf.ctypes.data, target_buf.ctypes.data
+            dct_buf.ctypes.data, temp_buf.ctypes.data, target_buf.ctypes.data,
         )
 
         c_reconstructed = target_buf.reshape(M, N)
@@ -102,7 +112,7 @@ def step_2_verify_c_kernel_parity():
         print(f"[*] Maximum Absolute Numerical Discrepancy (C vs PyTorch): {max_diff:.8f}")
         passed = max_diff < 1e-5
         if passed:
-            print("[+] PARITY VERIFIED: Match verified within float32 machine precision.")
+            print("[+] PARITY VERIFIED: Float32 match verified (< 1e-5).")
         else:
             print("[!] Warning: Parity tolerance exceeded.")
         return passed, max_diff
@@ -111,72 +121,101 @@ def step_2_verify_c_kernel_parity():
         return False, None
 
 
-def step_3_measure_spectral_mechanism():
-    print_header("[Step 3/4] Measuring Spectral Mechanism (Independent Verification)...")
-    torch.manual_seed(0)
-    m, n = 256, 1024
-
-    # Case A: White noise (unregularized standard weights proxy)
-    W_noise = torch.randn(m, n) * 0.02
-
-    # Case B: Smooth 2D field (Dirichlet-regularized weights ground truth)
-    u = torch.arange(m).view(-1, 1).float() / m
-    v = torch.arange(n).view(1, -1).float() / n
-    rho = torch.sqrt(u**2 + v**2)
-    S = torch.exp(-(rho**2) / (2 * 0.12**2)) * torch.randn(m, n)
-    W_smooth = idct2d(S)
-
-    results = []
-    print(f"{'Condition':<15} | {'Cutoff r2':<10} | {'Bit-Rate':<10} | {'Kept Coefs':<12} | {'Energy Kept':<12} | {'Rel. Error'}")
-    print("-" * 80)
-
-    for name, W in [("White Noise", W_noise), ("Smooth (Dirichlet)", W_smooth)]:
-        for r2 in (0.40, 0.50):
-            q = Base3TritQuantizer(r2=r2)
-            spec = dct2d(W)
-            packed = q.quantize_matrix(spec)
-            rec_spec = q.dequantize_matrix(packed)
-            rec = idct2d(rec_spec)
-            rel_err = (rec - W).norm().item() / W.norm().item()
-            kept = (q.compute_radial_grid(m, n, W.device) <= r2).float().mean().item()
-            energy_kept = ((rec_spec**2).sum() / (spec**2).sum()).item()
-            results.append({
-                "name": name,
-                "r2": r2,
-                "bpp": packed["bpp"],
-                "kept": kept,
-                "energy": energy_kept,
-                "err": rel_err,
-            })
-            print(f"{name:<15} | {r2:<10.2f} | {packed['bpp']:<10.3f} | {kept*100:<11.1f}% | {energy_kept*100:<11.1f}% | {rel_err*100:.1f}%")
-
-    # Ratio of energy preservation at default r2=0.50
-    smooth_res = [r for r in results if r["name"] == "Smooth (Dirichlet)" and r["r2"] == 0.50][0]
-    noise_res = [r for r in results if r["name"] == "White Noise" and r["r2"] == 0.50][0]
-    gain = smooth_res["energy"] / max(noise_res["energy"], 1e-5)
-    print(f"\n[+] Spectral Smoothness Advantage: Smooth weights retain {gain:.1f}x more energy under the same budget.")
-    return True, results
-
-
-def step_4_measure_baselines_comparison():
-    print_header("[Step 4/4] Comparing Against Controls: Hadamard & SVD Truncation...")
+def _train_demo_pair():
+    """Trains two matched 2-layer MLPs (Standard vs Dirichlet) on structured data."""
     torch.manual_seed(42)
-    m, n = 256, 1024
-    w = torch.randn(m, n) * 0.02
+    in_dim, hid_dim, num_classes = 128, 128, 10
+    centroids = torch.randn(num_classes, in_dim) * 2.0
+    y_train = torch.randint(0, num_classes, (1024,))
+    x_train = centroids[y_train] + torch.randn(1024, in_dim) * 0.8
 
-    # Baseline 1: Random orthogonal rotation / Hadamard-like control
-    w_rot, _, _ = random_orthogonal_transform_2d(w, seed=42)
-    _ = dct2d(w_rot)
-    e_d_rot = dirichlet_energy_2d(w_rot, normalization="edges").item()
+    def make_model():
+        torch.manual_seed(1337)
+        return nn.Sequential(
+            nn.Linear(in_dim, hid_dim, bias=False),
+            nn.GELU(),
+            nn.Linear(hid_dim, num_classes, bias=False),
+        )
 
-    # Baseline 2: SVD truncation (matched to ~68x compression)
-    w_svd, rank = svd_low_rank_approximation(w, compression_ratio=68.0)
-    svd_err = (w_svd - w).norm().item() / w.norm().item()
+    models = {}
+    for label, lam in [("Standard (AdamW)", 0.0), ("Dirichlet (dreg)", 20.0)]:
+        net = make_model()
+        opt = torch.optim.AdamW(net.parameters(), lr=3e-3, weight_decay=1e-4)
+        crit = nn.CrossEntropyLoss()
+        dloss = DirichletLoss(weight_decay=lam)
+        for _ in range(12):
+            for i in range(0, len(x_train), 64):
+                bx, by = x_train[i : i + 64], y_train[i : i + 64]
+                opt.zero_grad()
+                loss = crit(net(bx), by)
+                if lam > 0.0:
+                    loss = loss + dloss(net)
+                loss.backward()
+                opt.step()
+        models[label] = net
+    return models["Standard (AdamW)"], models["Dirichlet (dreg)"]
 
-    print(f"[*] Random Orthogonal Rotation: Preserves norm ({w_rot.norm():.4f} vs {w.norm():.4f}), Edge E_D={e_d_rot:.6f}")
-    print(f"[*] Truncated SVD Baseline:     Target 68x ratio -> Rank k={rank}, Relative Error: {svd_err*100:.1f}%")
-    print("[+] Controls computed successfully.")
-    return True
+
+def step_3_measure_spectral_mechanism():
+    print_header("[Step 3/4] Measuring Emergent Spectral Compaction (Trained Standard vs Dirichlet MLP)...")
+    std_net, topo_net = _train_demo_pair()
+    w_std = std_net[0].weight.detach()
+    w_topo = topo_net[0].weight.detach()
+
+    ed_std = dirichlet_energy_2d(w_std, normalization="edges").item()
+    ed_topo = dirichlet_energy_2d(w_topo, normalization="edges").item()
+
+    quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
+    print(f"{'Trained Model':<20} | {'Edge E_D':<10} | {'E(rho<=0.4)':<12} | {'TritQ bpp':<10} | {'Rel. L2 Err'}")
+    print("-" * 76)
+
+    stats = {}
+    for name, w in [("Standard (AdamW)", w_std), ("Dirichlet (dreg)", w_topo)]:
+        spec = dct2d(w)
+        rho = quantizer.compute_radial_grid(*w.shape, w.device)
+        low_energy = ((spec[rho <= 0.40] ** 2).sum() / (spec ** 2).sum()).item()
+        packed = quantizer.quantize_matrix(spec)
+        rec = idct2d(quantizer.dequantize_matrix(packed))
+        rel_err = (rec - w).norm().item() / w.norm().item()
+        ed = dirichlet_energy_2d(w, normalization="edges").item()
+        stats[name] = {"ed": ed, "low_energy": low_energy, "bpp": packed["bpp"], "rel_err": rel_err}
+        print(f"{name:<20} | {ed:<10.6f} | {low_energy*100:<11.1f}% | {packed['bpp']:<10.3f} | {rel_err*100:.1f}%")
+
+    compaction_ratio = stats["Dirichlet (dreg)"]["low_energy"] / max(stats["Standard (AdamW)"]["low_energy"], 1e-6)
+    passed = (ed_topo < ed_std) and (stats["Dirichlet (dreg)"]["rel_err"] < stats["Standard (AdamW)"]["rel_err"])
+    print(
+        f"\n[+] Emergent Dirichlet Effect: E_D reduced by {(1 - ed_topo / ed_std) * 100:.1f}%, "
+        f"low-freq energy {compaction_ratio:.2f}x higher, TritQ error reduced from "
+        f"{stats['Standard (AdamW)']['rel_err']*100:.1f}% -> {stats['Dirichlet (dreg)']['rel_err']*100:.1f}%."
+    )
+    return passed, w_topo, compaction_ratio
+
+
+def step_4_measure_baselines_comparison(w_topo: torch.Tensor):
+    print_header("[Step 4/4] Comparing Controls on Trained Topographic Weights (Rotation vs SVD)...")
+    quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
+
+    # Control 1: Random orthogonal rotation breaks spatial smoothness while preserving Frobenius norm
+    w_rot, _, _ = random_orthogonal_transform_2d(w_topo, seed=42)
+    ed_orig = dirichlet_energy_2d(w_topo, normalization="edges").item()
+    ed_rot = dirichlet_energy_2d(w_rot, normalization="edges").item()
+
+    p_orig = quantizer.quantize_matrix(dct2d(w_topo))
+    err_orig = (idct2d(quantizer.dequantize_matrix(p_orig)) - w_topo).norm().item() / w_topo.norm().item()
+
+    p_rot = quantizer.quantize_matrix(dct2d(w_rot))
+    err_rot = (idct2d(quantizer.dequantize_matrix(p_rot)) - w_rot).norm().item() / w_rot.norm().item()
+
+    # Control 2: Budget-matched FP32 SVD truncation at the same compression ratio
+    ratio = 32.0 / max(p_orig["bpp"], 1e-6)
+    w_svd, rank = svd_low_rank_approximation(w_topo, compression_ratio=ratio)
+    svd_err = (w_svd - w_topo).norm().item() / w_topo.norm().item()
+
+    print(f"[*] Topographic Weights (Native):    Edge E_D={ed_orig:.6f} | TritQ ({p_orig['bpp']:.2f} bpp) Rel. Err={err_orig*100:.1f}%")
+    print(f"[*] Random Orthogonal Rotation:      Edge E_D={ed_rot:.6f} | TritQ ({p_rot['bpp']:.2f} bpp) Rel. Err={err_rot*100:.1f}%")
+    print(f"[*] Budget-Matched FP32 SVD ({ratio:.1f}x): Rank k={rank}          | Rel. Err={svd_err*100:.1f}%")
+    print("[+] Controls computed successfully (rotation destroys spatial smoothness and raises DCT error).")
+    return ed_rot > ed_orig and err_rot > err_orig
 
 
 def main():
@@ -184,20 +223,23 @@ def main():
     print("Executing all empirical verifications end-to-end...\n")
 
     t_start = time.perf_counter()
-    ok_tests = step_1_run_test_suite()
+    ok_tests, test_summary = step_1_run_test_suite()
     ok_kernel, c_diff = step_2_verify_c_kernel_parity()
-    ok_spectral, _ = step_3_measure_spectral_mechanism()
-    ok_baselines = step_4_measure_baselines_comparison()
+    ok_spectral, w_topo, compaction_ratio = step_3_measure_spectral_mechanism()
+    ok_baselines = step_4_measure_baselines_comparison(w_topo)
     t_total = time.perf_counter() - t_start
 
     print_header("REPRODUCIBILITY VERIFICATION SUMMARY")
-    print(f"  1. Unit Tests Suite (79 tests):        {'[PASSED]' if ok_tests else '[FAILED]'}")
+    print(f"  1. Unit Tests Suite:                   {'[PASSED]' if ok_tests else '[FAILED]'} ({test_summary})")
     print(f"  2. C DMA Kernel Precision Parity:      {'[PASSED] (diff=' + f'{c_diff:.2e})' if ok_kernel else '[FAILED]'}")
-    print(f"  3. 2D-DCT Spectral Compaction Check:   {'[PASSED] (~6x energy retention)' if ok_spectral else '[FAILED]'}")
-    print(f"  4. Hadamard & SVD Baseline Controls:   {'[PASSED]' if ok_baselines else '[FAILED]'}")
+    print(f"  3. Emergent 2D-DCT Spectral Check:     {'[PASSED]' if ok_spectral else '[FAILED]'} ({compaction_ratio:.2f}x low-freq energy)")
+    print(f"  4. Orthogonal Rotation & SVD Controls: {'[PASSED]' if ok_baselines else '[FAILED]'}")
     print("-" * 80)
     print(f"Total Verification Elapsed Time: {t_total:.2f} seconds.")
     print("=" * 80)
+
+    if not (ok_tests and ok_kernel and ok_spectral and ok_baselines):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,43 +1,58 @@
 @inproceedings{vaswani2017attention,
   title={Attention is all you need},
   author={Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N and Kaiser, {\L}ukasz and Polosukhin, Illia},
-  booktitle={Advances in Neural Information Processing Systems},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
   volume={30},
   year={2017}
 }
 
 @article{eldan2023tinystories,
-  title={TinyStories: How small can language models be and still speak coherent English?},
+  title={{TinyStories}: How small can language models be and still speak coherent {English}?},
   author={Eldan, Ronen and Li, Yuanzhi},
   journal={arXiv preprint arXiv:2305.07759},
   year={2023}
 }
 
-@article{frantar2022gptq,
+@inproceedings{frantar2022gptq,
   title={{GPTQ}: Accurate post-training quantization for generative pre-trained transformers},
   author={Frantar, Elias and Ashkboos, Saleh and Hoefler, Torsten and Alistarh, Dan},
-  journal={arXiv preprint arXiv:2210.17323},
-  year={2022}
-}
-
-@article{lin2023awq,
-  title={{AWQ}: Activation-aware weight quantization for {LLM} compression and acceleration},
-  author={Lin, Ji and Tang, Jiaming and Tang, Haotian and Yang, Shang and Dang, Xingyu and Han, Song},
-  journal={arXiv preprint arXiv:2306.00978},
+  booktitle={International Conference on Learning Representations (ICLR)},
   year={2023}
 }
 
-@inproceedings{chee2024quip,
+@inproceedings{lin2023awq,
+  title={{AWQ}: Activation-aware weight quantization for {LLM} compression and acceleration},
+  author={Lin, Ji and Tang, Jiaming and Tang, Haotian and Yang, Shang and Chen, Wei-Ming and Wang, Wei-Chen and Xiao, Guangxuan and Dang, Xingyu and Gan, Chuang and Han, Song},
+  booktitle={Proceedings of Machine Learning and Systems (MLSys)},
+  year={2024}
+}
+
+@inproceedings{chee2023quip,
+  title={{QuIP}: 2-bit quantization of large language models with guarantees},
+  author={Chee, Jerry and Cai, Yaohui and Kuleshov, Volodymyr and De Sa, Christopher},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
+  volume={36},
+  year={2023}
+}
+
+@inproceedings{tseng2024quipsharp,
   title={{QuIP\#}: Even better {LLM} quantization with {Hadamard} incoherence and lattice codebooks},
-  author={Tseng, Albert and Chee, Jerry and Shen, Qinghao and Song, Mengshu and De Sa, Christopher},
+  author={Tseng, Albert and Chee, Jerry and Sun, Qingyao and Kuleshov, Volodymyr and De Sa, Christopher},
   booktitle={International Conference on Machine Learning (ICML)},
+  year={2024}
+}
+
+@article{ma2024bitnet,
+  title={The era of 1-bit {LLMs}: All large language models are in 1.58 bits},
+  author={Ma, Shuming and Wang, Hongyu and Ma, Lingxiao and Wang, Lei and Wang, Wenhui and Huang, Shaohan and Dong, Li and Wang, Ruiping and Xue, Jilong and Wei, Furu},
+  journal={arXiv preprint arXiv:2402.17764},
   year={2024}
 }
 
 @inproceedings{dettmers2022llmint8,
   title={{LLM.int8()}: 8-bit matrix multiplication for transformers at scale},
   author={Dettmers, Tim and Lewis, Mike and Belkada, Younes and Zettlemoyer, Luke},
-  booktitle={Advances in Neural Information Processing Systems},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
   volume={35},
   pages={30318--30332},
   year={2022}
@@ -47,7 +62,7 @@
   title={Discrete cosine transform},
   author={Ahmed, Nasir and Natarajan, T and Rao, Kamisetty R},
   journal={IEEE Transactions on Computers},
-  volume={100},
+  volume={C-23},
   number={1},
   pages={90--93},
   year={1974}
@@ -117,16 +132,16 @@
   year={2023}
 }
 
-@article{kim2023squeezellm,
+@inproceedings{kim2023squeezellm,
   title={{SqueezeLLM}: Dense-and-sparse quantization},
-  author={Kim, Sehoon and Hooper, Coleman and Gholami, Amir and Dong, Zhen and Hassoun, Xiuyu and Shen, Sheng and Keutzer, Kurt and Mahoney, Michael W},
-  journal={arXiv preprint arXiv:2306.07629},
-  year={2023}
+  author={Kim, Sehoon and Hooper, Coleman and Gholami, Amir and Dong, Zhen and Li, Xiuyu and Shen, Sheng and Mahoney, Michael W and Keutzer, Kurt},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2024}
 }
 
 @inproceedings{gao2024fourierft,
   title={Parameter-efficient fine-tuning with discrete {Fourier} transform},
-  author={Gao, Ziqi and Sun, Chen and Gao, Zixuan and Chen, Weihua and Shen, Sheng and Tan, Min and Keutzer, Kurt},
+  author={Gao, Ziqi and Wang, Qichao and Chen, Aochuan and Liu, Zijing and Wu, Bingzhe and Chen, Liang and Li, Jia},
   booktitle={International Conference on Machine Learning (ICML)},
   year={2024}
 }
@@ -138,43 +153,43 @@
   year={2017}
 }
 
-@article{keller2021topographic,
+@inproceedings{keller2021topographic,
   title={Topographic {VAEs} learn contrast-invariant features},
   author={Keller, T. Anderson and Welling, Max},
-  journal={Advances in Neural Information Processing Systems},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
   volume={34},
   year={2021}
 }
 
-@article{dettmers2023spqr,
+@inproceedings{dettmers2023spqr,
   title={{SpQR}: A sparse-quantized representation for near-lossless {LLM} weight compression},
   author={Dettmers, Tim and Svirschevski, Ruslan and Egiazarian, Vage and Kuznedelev, Denis and Frantar, Elias and Ashkboos, Saleh and Borzunov, Alexander and Hoefler, Torsten and Alistarh, Dan},
-  journal={arXiv preprint arXiv:2306.03078},
-  year={2023}
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2024}
 }
 
-@article{lin2024omniquant,
+@inproceedings{shao2024omniquant,
   title={{OmniQuant}: Omnidirectionally calibrated quantization for large language models},
   author={Shao, Wenqi and Chen, Mengzhao and Zhang, Zhaoyang and Xu, Peng and Zhao, Lirui and Li, Zhiqian and Zhang, Kaipeng and Gao, Peng and Qiao, Yu and Luo, Ping},
-  journal={arXiv preprint arXiv:2308.13137},
+  booktitle={International Conference on Learning Representations (ICLR)},
   year={2024}
 }
 
-@article{liu2024bllm,
+@inproceedings{huang2024billm,
   title={{BiLLM}: Pushing the limit of post-training quantization for {LLMs}},
-  author={Huang, Wei and Ma, Xudong and Qin, Haotong and Zheng, Xingyu and Lv, Cheng and Chen, Hong and Luo, Jie and Qi, Xiaojuan and Liu, Xianglong and Magno, Michele},
-  journal={arXiv preprint arXiv:2402.04291},
+  author={Huang, Wei and Liu, Yangdong and Qin, Haotong and Li, Ying and Zhang, Shiming and Liu, Xianglong and Magno, Michele and Qi, Xiaojuan},
+  booktitle={International Conference on Machine Learning (ICML)},
   year={2024}
 }
 
-@article{guo2024pblm,
+@inproceedings{shang2024pbllm,
   title={{PB-LLM}: Partially binarized large language models},
-  author={Shang, Yuzhang and Xu, Zhihang and Yao, Dan and Yang, Zhaozhuo and Zheng, Bin and Zhao, Jingjing},
-  journal={arXiv preprint arXiv:2310.00034},
+  author={Shang, Yuzhang and Yuan, Zhihang and Wu, Qiang and Dong, Zhen},
+  booktitle={International Conference on Learning Representations (ICLR)},
   year={2024}
 }
 
-@inproceedings{strang1999dct,
+@article{strang1999dct,
   title={The discrete cosine transform},
   author={Strang, Gilbert},
   journal={SIAM Review},
@@ -184,10 +199,9 @@
   year={1999}
 }
 
-@article{rasmussen2006gp,
-  title={Gaussian processes for machine learning},
+@book{rasmussen2006gp,
+  title={Gaussian Processes for Machine Learning},
   author={Rasmussen, Carl Edward and Williams, Christopher K. I.},
-  journal={MIT Press},
+  publisher={MIT Press},
   year={2006}
 }
-

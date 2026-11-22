@@ -1,12 +1,13 @@
 CC ?= gcc
-CFLAGS ?= -O3 -shared -fPIC -Wall
-LDFLAGS ?= -lm -lpthread
+CFLAGS ?= -O3 -std=c11 -shared -fPIC -Wall -Wextra
+LDFLAGS ?= -pthread
 
 TARGET = libspectral_dma_kernel.so
 
 ifeq ($(OS),Windows_NT)
     TARGET = spectral_dma_kernel.dll
-    LDFLAGS = -lm
+    CFLAGS = -O3 -std=c11 -shared -Wall -Wextra
+    LDFLAGS =
 endif
 
 all: $(TARGET)

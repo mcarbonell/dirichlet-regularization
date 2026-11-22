@@ -30,12 +30,18 @@ def random_orthogonal_transform_2d(
         gen = None
 
     m, n = weight.shape
-    # Generate random orthogonal matrices via QR decomposition
+    # Generate Haar-uniform random orthogonal matrices via QR + Mezzadri (2007) sign correction
     g_l = torch.randn((m, m), device=weight.device, dtype=weight.dtype, generator=gen)
-    q_l, _ = torch.linalg.qr(g_l)
+    q_l, r_l = torch.linalg.qr(g_l)
+    diag_l = torch.sign(torch.diag(r_l))
+    diag_l = torch.where(diag_l == 0, torch.ones_like(diag_l), diag_l)
+    q_l = q_l * diag_l.unsqueeze(0)
 
     g_r = torch.randn((n, n), device=weight.device, dtype=weight.dtype, generator=gen)
-    q_r, _ = torch.linalg.qr(g_r)
+    q_r, r_r = torch.linalg.qr(g_r)
+    diag_r = torch.sign(torch.diag(r_r))
+    diag_r = torch.where(diag_r == 0, torch.ones_like(diag_r), diag_r)
+    q_r = q_r * diag_r.unsqueeze(0)
 
     w_rot = q_l @ weight @ q_r.t()
     return w_rot, q_l, q_r
@@ -78,10 +84,10 @@ def svd_low_rank_approximation(
     return w_approx, rank
 
 
-def spectral_hadamard_benchmark_control(weight: torch.Tensor) -> torch.Tensor:
+def spectral_hadamard_benchmark_control(weight: torch.Tensor, seed: Optional[int] = None) -> torch.Tensor:
     """
-    Applies symmetric Walsh-Hadamard-like random signs or rotation to evaluate
-    incoherence processing without spatial manifold smoothing.
+    Applies a Haar-uniform random orthogonal 2D rotation control (incoherence
+    baseline without imposing spatial manifold smoothing).
     """
-    w_rot, _, _ = random_orthogonal_transform_2d(weight)
+    w_rot, _, _ = random_orthogonal_transform_2d(weight, seed=seed)
     return w_rot

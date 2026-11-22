@@ -1,9 +1,9 @@
 """
 Dirichlet Regularization (dreg)
 ===============================
-A mathematically principled framework for Dirichlet spatial regularization of neural
-network weights: cortical-inspired topographic smoothness that enables extreme spectral
-compressibility. Includes sub-1.0 bpp Base-3 trit quantization and zero-copy DMA inference.
+A mathematically principled framework for 2D Dirichlet spatial regularization of neural
+network weights: cortical-inspired topographic smoothness that concentrates 2D-DCT
+spectral energy and improves low-bit Base-3 trit spectral quantization.
 """
 
 from .baselines import random_orthogonal_transform_2d, svd_low_rank_approximation

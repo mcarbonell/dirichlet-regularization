@@ -53,8 +53,8 @@ def run_gpt2_benchmark(
     steps: int = 300,
     batch_size: int = 8,
     lr: float = 5e-5,
-    topo_lambda: float = 1e-3,
-    cooldown_ratio: float = 0.85,
+    topo_lambda: float = 15.0,
+    cooldown_ratio: float = 0.15,
 ) -> Dict[str, Any]:
     import numpy as np
     import torch
@@ -269,7 +269,7 @@ def run_gpt2_benchmark(
 
 
 @app.local_entrypoint()
-def main(steps: int = 300, topo_lambda: float = 1e-3):
-    results = run_gpt2_benchmark.remote(steps=steps, topo_lambda=topo_lambda)
+def main(steps: int = 300, topo_lambda: float = 15.0, cooldown_ratio: float = 0.15):
+    results = run_gpt2_benchmark.remote(steps=steps, topo_lambda=topo_lambda, cooldown_ratio=cooldown_ratio)
     print("\n[+] GPT-2 Run Finished!")
     print(json.dumps(results, indent=2))

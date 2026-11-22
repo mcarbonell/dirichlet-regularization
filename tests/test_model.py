@@ -126,6 +126,25 @@ class TestTopographicTransformer:
         output = small_model.generate(prompt, max_new_tokens=10)
         assert output.shape == (1, 14)  # 4 prompt + 10 generated
 
+    def test_generate_greedy_and_validation(self, small_model):
+        prompt = torch.randint(0, 128, (1, 4))
+        out1 = small_model.generate(prompt, max_new_tokens=5, temperature=0.0)
+        out2 = small_model.generate(prompt, max_new_tokens=5, temperature=0.0)
+        assert torch.equal(out1, out2)
+        with pytest.raises(ValueError, match="non-negative"):
+            small_model.generate(prompt, max_new_tokens=2, temperature=-0.5)
+
+    def test_seq_len_overflow_raises(self, small_model):
+        too_long = torch.randint(0, 128, (1, small_model.cfg.max_seq_len + 1))
+        with pytest.raises(ValueError, match="exceeds max_seq_len"):
+            small_model(too_long)
+
+    def test_dropout_config_wired(self):
+        cfg = TopographicConfig(vocab_size=64, d_model=32, n_heads=2, n_layers=1, ffn_dim=64, max_seq_len=16, dropout=0.2)
+        model = TopographicTransformer(cfg)
+        assert isinstance(model.blocks[0].attn.attn_dropout, nn.Dropout)
+        assert isinstance(model.blocks[0].resid_dropout, nn.Dropout)
+
     def test_param_count(self, small_model):
         count = sum(p.numel() for p in small_model.parameters())
         assert count > 0

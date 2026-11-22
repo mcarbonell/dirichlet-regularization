@@ -7,12 +7,12 @@ on the pre-trained 10,000-step TinyStories models stored in Modal Volume:
   - Topographic Model:  tinystories_10M_topographic_lambda30.0_10000s.pt
 
 Sweeps across 6 radial cutoff regimes:
-  1. Ultra-Aggressive (~0.47 bpp / 68x)
-  2. Aggressive       (~0.68 bpp / 47x)
-  3. Calibrated TritQ (~0.95 bpp / 34x)
-  4. Mid-Band         (~1.25 bpp / 25x)
-  5. High-Fidelity    (~1.65 bpp / 19x)
-  6. Conservative     (~2.10 bpp / 15x)
+  1. Ultra-Aggressive (~0.43 bpp / 74.4x)
+  2. Aggressive       (~0.91 bpp / 35.0x)
+  3. Calibrated TritQ (~1.64 bpp / 19.5x)
+  4. Mid-Band         (~2.18 bpp / 14.7x)
+  5. High-Fidelity    (~2.79 bpp / 11.5x)
+  6. Conservative     (~3.77 bpp / 8.5x)
 
 Outputs:
   - Formatted Markdown / LaTeX comparative table

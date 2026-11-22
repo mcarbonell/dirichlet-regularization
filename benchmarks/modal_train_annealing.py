@@ -1,21 +1,15 @@
 """
 Modal Training Pipeline: Dirichlet Annealing on TinyStories 10M
 ===============================================================
-Tests Hypothesis 1 & Action 14 from Auditoría:
+Tests the Topological Annealing hypothesis:
   Does annealing lambda -> 0 in the cooldown phase (last 15% of steps)
-  eliminate the dense FP32 degradation (closing 6.46 -> 6.11 PPL)
-  while retaining the low-frequency spectral concentration and
-  quantization robustness (0.945 bpp Base-3 TritQ)?
+  reduce the dense FP32 degradation while retaining low-frequency spectral
+  concentration and Base-3 TritQ quantization robustness?
 
 Schedulers tested:
-  - StepCooldownScheduler (lambda_0=30.0, cooldown_ratio=0.85, lambda_end=0.0)
+  - StepCooldownScheduler (lambda_0=30.0, cooldown_ratio=0.15, lambda_end=0.0)
   - Baseline Standard (lambda=0.0)
   - Baseline Constant Topographic (lambda=30.0)
-
-Outputs:
-  - FP32 Perplexity & Mean Dirichlet Energy
-  - 0.945 bpp Base-3 TritQ Perplexity
-  - Checkpoint saved to Modal persistent volume
 """
 
 import copy
@@ -58,7 +52,7 @@ def train_annealed_tinystories(
     batch_size: int = 32,
     lr: float = 5e-4,
     lambda_init: float = 30.0,
-    cooldown_ratio: float = 0.85,
+    cooldown_ratio: float = 0.15,
     eval_interval: int = 100,
 ) -> Dict[str, Any]:
     import torch
@@ -152,6 +146,7 @@ def train_annealed_tinystories(
     history = []
 
     model.train()
+    steps_since_log = 0
     while step < max_steps:
         try:
             inputs, targets = next(train_iter)
@@ -183,11 +178,12 @@ def train_annealed_tinystories(
 
         running_ce += ce_loss.item()
         step += 1
+        steps_since_log += 1
 
         if step % eval_interval == 0 or step == max_steps:
             elapsed = time.time() - start_time
-            avg_ce = running_ce / eval_interval
-            avg_topo = running_topo / eval_interval
+            avg_ce = running_ce / max(steps_since_log, 1)
+            avg_topo = running_topo / max(steps_since_log, 1)
             train_ppl = math.exp(min(avg_ce, 20.0))
             val_ppl = evaluate_model(model)
             tok_per_sec = (step * batch_size * seq_len) / max(elapsed, 1e-4)
@@ -211,6 +207,7 @@ def train_annealed_tinystories(
             })
             running_ce = 0.0
             running_topo = 0.0
+            steps_since_log = 0
 
     total_time = time.time() - start_time
     print(f"\n[+] Annealed Training finished in {total_time:.1f}s ({total_time/60:.2f} min)")
@@ -220,7 +217,7 @@ def train_annealed_tinystories(
     linears = model.get_linear_projections()
     mean_ed = float(torch.stack([dirichlet_energy_2d(m.weight, normalization="edges") for m in linears]).mean().item())
 
-    # 6. Quantization Audit (0.945 bpp Base-3 TritQ)
+    # 6. Quantization Audit (calibrated Base-3 TritQ, ~1.638 bpp)
     quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.0)
     q_model = copy.deepcopy(model)
     total_orig_bytes = 0
@@ -254,13 +251,13 @@ def train_annealed_tinystories(
     print(f"[*] Perplexity Delta (Δ):          +{delta_ppl:.2f}")
     print("=" * 75)
 
-    # 7. Save Checkpoint
+    # 7. Save Checkpoint (using same quantizer as audit)
     ckpt_name = f"tinystories_10M_annealed_lambda{lambda_init}_{max_steps}s"
     pt_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.pt")
     tritq_path = os.path.join(CHECKPOINT_DIR, f"{ckpt_name}.tritq")
     torch.save(model.state_dict(), pt_path)
     cfg_dict = dataclasses.asdict(cfg)
-    TritQFormat.save(tritq_path, model.state_dict(), cfg_dict)
+    TritQFormat.save(tritq_path, model.state_dict(), cfg_dict, quantizer=quantizer)
     volume.commit()
     print(f"[+] Saved PyTorch checkpoint: {pt_path}")
     print(f"[+] Saved .tritq checkpoint:    {tritq_path}")

@@ -64,13 +64,28 @@ class TestBase3TritQuantizer:
         assert rec.shape == (16, 16)
 
     def test_bpp_is_sub_one(self):
-        """For topographic-like smooth spectra, bpp should be well under 32."""
+        """With default radii (0.10, 0.25, 0.50), bpp is strictly sub-1.0."""
         q = Base3TritQuantizer()
-        # Create a smooth spectrum (energy concentrated in low frequencies)
         spec = torch.zeros(32, 32)
-        spec[:4, :4] = torch.randn(4, 4) * 10.0  # Only low-freq has energy
+        spec[:4, :4] = torch.randn(4, 4) * 10.0
         packed = q.quantize_matrix(spec)
-        assert packed["bpp"] < 2.0  # Much less than FP32's 32 bpp
+        assert packed["bpp"] < 1.0
+
+    def test_invalid_radii_raises(self):
+        with pytest.raises(ValueError, match="0 <= r0 <= r1 <= r2"):
+            Base3TritQuantizer(r0=0.3, r1=0.2, r2=0.5)
+        with pytest.raises(ValueError, match="0 <= r0 <= r1 <= r2"):
+            Base3TritQuantizer(r0=-0.1, r1=0.2, r2=0.5)
+
+    def test_empty_bands_do_not_crash(self):
+        """Small matrices or equal band boundaries should not crash on empty masks."""
+        for radii in [(0.05, 0.10, 0.20), (0.10, 0.10, 0.50), (0.0, 0.0, 0.0)]:
+            q = Base3TritQuantizer(*radii)
+            spec = torch.randn(8, 8)
+            packed = q.quantize_matrix(spec)
+            rec = q.dequantize_matrix(packed)
+            assert rec.shape == (8, 8)
+            assert torch.isfinite(rec).all()
 
     def test_roundtrip_low_freq_preservation(self):
         """DC and low-frequency coefficients should survive quantization well."""
@@ -207,6 +222,44 @@ class TestTritQFormat:
                 f.write(struct.pack("<I", 0))
 
             with pytest.raises((ValueError, SyntaxError)):
+                TritQFormat.load(path)
+        finally:
+            os.unlink(path)
+
+    def test_save_load_preserves_embeddings_and_lm_head_in_fp16(self):
+        """token_emb and lm_head must NOT be spectrally quantized by TritQFormat."""
+        torch.manual_seed(7)
+        weights = {
+            "token_emb.weight": torch.randn(64, 16),
+            "blocks.0.attn.q_proj.weight": torch.randn(16, 16),
+            "lm_head.weight": torch.randn(64, 16),
+        }
+        config = {"vocab_size": 64, "d_model": 16}
+        with tempfile.NamedTemporaryFile(suffix=".tritq", delete=False) as f:
+            path = f.name
+        try:
+            TritQFormat.save(path, weights, config)
+            _, loaded = TritQFormat.load(path)
+            assert torch.allclose(loaded["token_emb.weight"], weights["token_emb.weight"], atol=1e-2)
+            assert torch.allclose(loaded["lm_head.weight"], weights["lm_head.weight"], atol=1e-2)
+        finally:
+            os.unlink(path)
+
+    def test_load_rejects_truncated_and_mismatched_radii(self):
+        weights = {"proj.weight": torch.randn(16, 16)}
+        with tempfile.NamedTemporaryFile(suffix=".tritq", delete=False) as f:
+            path = f.name
+        try:
+            TritQFormat.save(path, weights, {"d": 16}, quantizer=Base3TritQuantizer(0.15, 0.40, 1.0))
+            with pytest.raises(ValueError, match="do not match"):
+                TritQFormat.load(path, quantizer=Base3TritQuantizer(0.10, 0.25, 0.50))
+
+            # Truncated file
+            with open(path, "rb") as f:
+                raw = f.read()
+            with open(path, "wb") as f:
+                f.write(raw[:20])
+            with pytest.raises(ValueError, match="Truncated"):
                 TritQFormat.load(path)
         finally:
             os.unlink(path)

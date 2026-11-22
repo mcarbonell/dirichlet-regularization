@@ -5,7 +5,11 @@ Tests for comparative baselines: Random Orthogonal Rotations and SVD truncation.
 import pytest
 import torch
 
-from dreg.baselines import random_orthogonal_transform_2d, svd_low_rank_approximation
+from dreg.baselines import (
+    random_orthogonal_transform_2d,
+    spectral_hadamard_benchmark_control,
+    svd_low_rank_approximation,
+)
 
 
 class TestBaselines:
@@ -47,3 +51,10 @@ class TestBaselines:
         assert w_approx.shape == (64, 128)
         assert rank > 0
         assert rank < 64
+
+    def test_spectral_hadamard_control_preserves_norm(self):
+        torch.manual_seed(0)
+        w = torch.randn(32, 32)
+        w_rot = spectral_hadamard_benchmark_control(w, seed=7)
+        assert w_rot.shape == w.shape
+        assert torch.norm(w_rot).item() == pytest.approx(torch.norm(w).item(), rel=1e-4)

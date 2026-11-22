@@ -1,19 +1,17 @@
 """
-Comprehensive SOTA Quantization Comparison Benchmark on TinyStories 10M
-========================================================================
+Comparative Quantization Benchmark on TinyStories 10M
+=====================================================
 Compares Topographic (Dirichlet) vs Standard 10M Models across:
   1. FP32 (Unquantized) - 32.0 bpp
-  2. Spatial Uniform INT4 (RTN 4-bit) - 4.0 bpp
-  3. Spatial Uniform INT2 (RTN 2-bit) - 2.0 bpp
+  2. Spatial Uniform INT4 (RTN 4-bit, per-tensor) - 4.0 bpp
+  3. Spatial Uniform INT2 (RTN 2-bit / ternary, per-tensor) - 2.0 bpp
   4. Spectral Uniform INT4 (DCT-2D 4-bit) - 4.0 bpp
-  5. Base-3 Trit Spectral Quantization (.tritq) - 0.945 bpp (Ours)
+  5. Base-3 Trit Spectral Quantization (.tritq, r=(0.15,0.40,1.00)) - 1.638 bpp (Ours)
 
 Measures:
-  - Validation Perplexity (PPL) on 20 TinyStories batches
+  - Validation Perplexity (PPL) on 25 TinyStories batches (204,800 tokens)
   - Effective Bits Per Parameter (bpp)
-  - Linear Weights Storage Footprint (KB)
   - Degradation Delta (Δ PPL)
-  - Streaming Active SRAM Memory Limit
 """
 
 import os
@@ -216,7 +214,7 @@ def run_quantization_benchmark():
     topo_tritq_model, _ = quantize_tritq(topo_model)
     std_tritq_ppl = eval_ppl(std_tritq_model)
     topo_tritq_ppl = eval_ppl(topo_tritq_model)
-    log_result("Base-3 TritQ (.tritq, Ours)", tritq_bpp, std_tritq_ppl, topo_tritq_ppl, "< 1.0 MB (SRAM)", "Sub-1 bpp + Zero-Copy DMA Pipelining")
+    log_result("Base-3 TritQ (.tritq, Ours)", tritq_bpp, std_tritq_ppl, topo_tritq_ppl, "2.19 MB (.tritq) / tiled streaming", "Calibrated 4-band spectral TritQ")
 
     print("=" * 105)
     return results

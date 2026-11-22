@@ -23,6 +23,7 @@ build/
 data/
 .kilo/
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 coverage.xml

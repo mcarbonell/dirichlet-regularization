@@ -7,7 +7,7 @@ independent random seeds (>= 3 seeds) with optional Dirichlet Annealing.
 Measures:
   1. Dense FP32 Validation Perplexity
   2. Mean Weight Dirichlet Roughness (E_D)
-  3. Quantized Validation Perplexity (0.945 bpp Base-3 TritQ)
+  3. Quantized Validation Perplexity (calibrated Base-3 TritQ)
   4. Relative Degradation (Delta PPL)
 
 Outputs:
@@ -116,7 +116,7 @@ def quantize_and_evaluate(
     evaluates validation PPL, and restores original FP32 weights.
     Returns: (quantized_ppl, bpp)
     """
-    quantizer = Base3TritQuantizer()
+    quantizer = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00)
     saved_weights = {}
     total_orig_bytes = 0
     total_comp_bytes = 0
@@ -203,17 +203,17 @@ def train_single_run(
         optimizer.zero_grad()
         _, ce_loss = model(inputs, targets)
 
+        if scheduler is not None:
+            scheduler.step()
+
         loss = ce_loss
         if is_topographic and topo_loss_fn is not None:
-            topo_penalty = topo_loss_fn(model.modules())
+            topo_penalty = topo_loss_fn(model)
             loss = loss + topo_penalty
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-
-        if scheduler is not None:
-            scheduler.step()
 
         step += 1
 
@@ -247,7 +247,7 @@ def main():
     parser.add_argument("--steps", type=int, default=300, help="Training steps per seed")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
-    parser.add_argument("--topo-lambda", type=float, default=0.02, help="Topographic Dirichlet regularization weight")
+    parser.add_argument("--topo-lambda", type=float, default=15.0, help="Topographic Dirichlet regularization weight")
     parser.add_argument(
         "--annealing",
         type=str,
@@ -346,6 +346,9 @@ def main():
     roughness_reduction = (1.0 - (top_ed_m / (std_ed_m + 1e-12))) * 100.0
     quant_gain = std_q_m - top_q_m
 
+    mean_bpp = float(np.mean([r["bpp"] for r in topo_runs]))
+    quant_label = f"Quantized PPL ({mean_bpp:.3f} bpp)"
+
     print("\n" + "=" * 90)
     print(f" STATISTICAL BENCHMARK SUMMARY ({len(args.seeds)} SEEDS: {args.seeds})")
     print("=" * 90)
@@ -353,11 +356,11 @@ def main():
     print("-" * 90)
     print(f"{'FP32 Val Perplexity':<32} | {std_fp32_m:.2f} +/- {std_fp32_s:.2f}{'':<13} | {top_fp32_m:.2f} +/- {top_fp32_s:.2f}")
     print(f"{'Weight Roughness (E_D)':<32} | {std_ed_m:.6f} +/- {std_ed_s:.6f}{'':<5} | {top_ed_m:.6f} +/- {top_ed_s:.6f}")
-    print(f"{'Quantized PPL (0.945 bpp)':<32} | {std_q_m:.2f} +/- {std_q_s:.2f}{'':<13} | {top_q_m:.2f} +/- {top_q_s:.2f}")
+    print(f"{quant_label:<32} | {std_q_m:.2f} +/- {std_q_s:.2f}{'':<13} | {top_q_m:.2f} +/- {top_q_s:.2f}")
     print(f"{'PPL Degradation (Delta)':<32} | +{std_d_m:.2f} +/- {std_d_s:.2f}{'':<12} | +{top_d_m:.2f} +/- {top_d_s:.2f}")
     print("-" * 90)
     print(f"[*] Statistical Weight Roughness Reduction: {roughness_reduction:.1f}%")
-    print(f"[*] Topographic Quantization Advantage:     -{quant_gain:.2f} PPL under 0.945 bpp")
+    print(f"[*] Topographic Quantization Advantage:     {quant_gain:+.2f} PPL under {mean_bpp:.3f} bpp")
     print(f"[*] Total Benchmark Duration:               {total_time:.2f} seconds")
     print("=" * 90)
 

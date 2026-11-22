@@ -40,7 +40,7 @@ class TopographicLinear(nn.Linear):
         self.grid_shape = (out_features, in_features)
 
     def dirichlet_energy(self) -> torch.Tensor:
-        return dirichlet_energy_2d(self.weight, self.grid_shape)
+        return dirichlet_energy_2d(self.weight)
 
 
 class TopographicAttention(nn.Module):
@@ -56,6 +56,7 @@ class TopographicAttention(nn.Module):
         self.k_proj = TopographicLinear(cfg.d_model, cfg.d_model, bias=False)
         self.v_proj = TopographicLinear(cfg.d_model, cfg.d_model, bias=False)
         self.out_proj = TopographicLinear(cfg.d_model, cfg.d_model, bias=False)
+        self.attn_dropout = nn.Dropout(cfg.dropout) if cfg.dropout > 0.0 else nn.Identity()
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         b, s, d = x.shape
@@ -71,7 +72,7 @@ class TopographicAttention(nn.Module):
             causal_mask = torch.triu(torch.full((s, s), float("-inf"), device=x.device), diagonal=1)
             scores = scores + causal_mask
 
-        attn = F.softmax(scores, dim=-1)
+        attn = self.attn_dropout(F.softmax(scores, dim=-1))
         out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(b, s, d)
         return self.out_proj(out)
 
@@ -97,10 +98,11 @@ class TopographicBlock(nn.Module):
         self.attn = TopographicAttention(cfg)
         self.ln2 = nn.LayerNorm(cfg.d_model)
         self.mlp = TopographicMLP(cfg)
+        self.resid_dropout = nn.Dropout(cfg.dropout) if cfg.dropout > 0.0 else nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x))
-        x = x + self.mlp(self.ln2(x))
+        x = x + self.resid_dropout(self.attn(self.ln1(x)))
+        x = x + self.resid_dropout(self.mlp(self.ln2(x)))
         return x
 
 
@@ -131,6 +133,8 @@ class TopographicTransformer(nn.Module):
 
     def forward(self, idx: torch.Tensor, targets: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         b, s = idx.shape
+        if s > self.cfg.max_seq_len:
+            raise ValueError(f"Sequence length {s} exceeds max_seq_len {self.cfg.max_seq_len}")
         x = self.token_emb(idx) + self.pos_emb[:, :s, :]
         for blk in self.blocks:
             x = blk(x)
@@ -162,12 +166,17 @@ class TopographicTransformer(nn.Module):
 
     @torch.no_grad()
     def generate(self, prompt_tokens: torch.Tensor, max_new_tokens: int = 64, temperature: float = 0.8) -> torch.Tensor:
+        if temperature < 0.0:
+            raise ValueError(f"temperature must be non-negative, got {temperature}")
         out = prompt_tokens.clone()
         for _ in range(max_new_tokens):
             idx_cond = out[:, -self.cfg.max_seq_len:]
             logits, _ = self(idx_cond)
-            logits = logits[:, -1, :] / temperature
-            probs = F.softmax(logits, dim=-1)
-            next_token = torch.multinomial(probs, num_samples=1)
+            last_logits = logits[:, -1, :]
+            if temperature == 0.0:
+                next_token = torch.argmax(last_logits, dim=-1, keepdim=True)
+            else:
+                probs = F.softmax(last_logits / temperature, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1)
             out = torch.cat([out, next_token], dim=1)
         return out

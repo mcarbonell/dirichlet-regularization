@@ -7,6 +7,7 @@ using gcc, clang, or MSVC cl.
 
 import os
 import platform
+import shutil
 import subprocess
 import sys
 
@@ -35,10 +36,15 @@ def build():
         "C:\\msys64\\mingw64\\bin\\gcc.exe" if os.path.exists("C:\\msys64\\mingw64\\bin\\gcc.exe") else "gcc",
         "gcc",
         "clang",
-        "cl"
+        "cl",
     ]
     chosen_compiler = None
     for cc in compilers:
+        if cc == "cl":
+            if shutil.which("cl", path=env.get("PATH")):
+                chosen_compiler = "cl"
+                break
+            continue
         try:
             res = subprocess.run([cc, "--version"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if res.returncode == 0:
@@ -53,27 +59,22 @@ def build():
 
     print(f"[*] Found compiler: {chosen_compiler}")
     machine = platform.machine().lower()
-    is_x86 = any(arch in machine for arch in ["x86_64", "amd64", "x86", "i386", "i686"])
+    is_x86_64 = any(arch in machine for arch in ["x86_64", "amd64"])
 
-    if "cl" not in chosen_compiler.lower():
-        cmd = [
-            chosen_compiler,
-            "-O3",
-            "-shared",
-        ]
-        if is_x86:
+    if os.path.basename(chosen_compiler).lower() != "cl":
+        cmd = [chosen_compiler, "-O3", "-std=c11", "-shared"]
+        if is_x86_64:
             cmd.extend(["-mavx2", "-mfma"])
         if "windows" not in system:
-            cmd.extend(["-fPIC", "-pthread", "-lm"])
-        cmd.extend([
-            "-o",
-            output_path,
-            c_source,
-        ])
+            cmd.append("-fPIC")
+        cmd.extend(["-o", output_path, c_source])
+        if "windows" not in system:
+            cmd.append("-pthread")
     else:  # cl (MSVC)
         cmd = [
             "cl",
             "/O2",
+            "/std:c11",
             "/LD",
             c_source,
             f"/Fe:{output_path}",

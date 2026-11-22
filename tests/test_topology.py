@@ -45,6 +45,12 @@ class TestGetGridDimensions:
         h, w = get_grid_dimensions(1)
         assert h == 1 and w == 1
 
+    def test_non_positive_raises(self):
+        with pytest.raises(ValueError, match="positive integer"):
+            get_grid_dimensions(0)
+        with pytest.raises(ValueError, match="positive integer"):
+            get_grid_dimensions(-4)
+
 
 class TestDirichletEnergy2D:
     """Tests for the Dirichlet harmonic energy computation."""
@@ -99,6 +105,15 @@ class TestDirichletEnergy2D:
         assert w.grad is not None
         assert w.grad.shape == w.shape
 
+    def test_non_contiguous_and_grid_shape_validation(self):
+        w = torch.randn(16, 32).t()  # non-contiguous (32, 16)
+        assert not w.is_contiguous()
+        e_nat = dirichlet_energy_2d(w, grid_shape=(32, 16))
+        e_col = dirichlet_energy_2d(w, grid_shape=(4, 4))
+        assert torch.isfinite(e_nat) and torch.isfinite(e_col)
+        with pytest.raises(ValueError, match="incompatible"):
+            dirichlet_energy_2d(w, grid_shape=(5, 5))
+
 
 class TestDirichletLoss:
     """Tests for the DirichletLoss module wrapper."""
@@ -146,6 +161,31 @@ class TestDirichletLoss:
         loss = loss_fn(model.modules())
         assert loss.item() > 0.0
         assert torch.isfinite(loss)
+
+    def test_dirichlet_loss_accepts_model_and_excludes_embeddings_and_lm_head(self):
+        class TinyLM(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.emb = nn.Embedding(64, 16)
+                self.fc = nn.Linear(16, 16, bias=False)
+                self.frozen = nn.Linear(16, 16, bias=False)
+                self.frozen.weight.requires_grad = False
+                self.lm_head = nn.Linear(16, 64, bias=False)
+
+        model = TinyLM()
+        loss_fn = DirichletLoss(weight_decay=1.0)
+        loss = loss_fn(model)
+        expected = dirichlet_energy_2d(model.fc.weight)
+        assert loss.item() == pytest.approx(expected.item(), rel=1e-5)
+
+    def test_dirichlet_loss_deduplicates_tied_weights(self):
+        l1 = nn.Linear(16, 16, bias=False)
+        l2 = nn.Linear(16, 16, bias=False)
+        l2.weight = l1.weight  # tied
+        loss_fn = DirichletLoss(weight_decay=1.0)
+        loss = loss_fn([l1, l2])
+        expected = dirichlet_energy_2d(l1.weight)
+        assert loss.item() == pytest.approx(expected.item(), rel=1e-5)
 
 
 class TestDirichletScheduler:

@@ -208,8 +208,8 @@ def generate_all_artifacts():
 
     ax_p2 = ax_p1.twinx()
     color2 = "tab:red"
-    ax_p2.set_ylabel("Quantized Perplexity (0.945 bpp)", color=color2, fontsize=11)
-    line2 = ax_p2.plot(lambdas, quant_ppl_2k, marker="s", color=color2, lw=2.5, ls="--", label="Quantized PPL (0.945 bpp)")
+    ax_p2.set_ylabel("Quantized Perplexity (1.638 bpp)", color=color2, fontsize=11)
+    line2 = ax_p2.plot(lambdas, quant_ppl_2k, marker="s", color=color2, lw=2.5, ls="--", label="Quantized PPL (1.638 bpp)")
     ax_p2.tick_params(axis="y", labelcolor=color2)
 
     lines = line1 + line2

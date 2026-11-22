@@ -6,14 +6,30 @@ build-backend = "setuptools.build_meta"
 name = "dirichlet-regularization"
 version = "1.0.0"
 authors = [
-  { name = "M. Carbonell" }
+  { name = "Mario Raúl Carbonell Martínez", email = "marioraulcarbonell@gmail.com" }
 ]
-description = "Dirichlet Spatial Regularization for Neural Networks: cortical-inspired topographic smoothness enabling extreme spectral compressibility"
+description = "2D Dirichlet spatial regularization for neural network weights: inducing topographic smoothness for 2D-DCT spectral compression and Base-3 trit quantization"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
+keywords = [
+    "deep-learning",
+    "pytorch",
+    "regularization",
+    "dirichlet-energy",
+    "dct",
+    "quantization",
+    "model-compression",
+]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: C",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Operating System :: OS Independent",
@@ -26,12 +42,14 @@ dependencies = [
 [project.optional-dependencies]
 examples = [
     "torchvision>=0.15.0",
+    "matplotlib>=3.5.0",
 ]
 benchmarks = [
     "modal>=0.50.0",
     "datasets>=2.0.0",
     "tokenizers>=0.13.0",
     "transformers>=4.28.0",
+    "matplotlib>=3.5.0",
     "tqdm>=4.65.0",
 ]
 dev = [
