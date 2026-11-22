@@ -6,11 +6,11 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-red.svg)](https://pytorch.org/)
 [![CI](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml/badge.svg)](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-99_passed-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-99_passed-brightgreen.svg)](https://github.com/mcarbonell/dirichlet-regularization/tree/main/tests)
+[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen.svg)](https://github.com/mcarbonell/dirichlet-regularization/tree/main/tests)
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Preprint (PDF)](https://img.shields.io/badge/Preprint-PDF-purple.svg)](paper/paper-draft.pdf)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Preprint (PDF)](https://img.shields.io/badge/Preprint-PDF-purple.svg)](https://github.com/mcarbonell/dirichlet-regularization/blob/main/paper/paper-draft.pdf)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mcarbonell/dirichlet-regularization/blob/main/LICENSE)
 
 </div>
 
@@ -25,7 +25,7 @@ Standard neural networks treat weight matrices as unstructured, permutation-inva
 Penalizing discrete 2D spatial differences breaks permutation symmetry and **concentrates spectral energy in the low-frequency harmonics of the orthonormal 2D-DCT** — up to **~72%** of Frobenius energy below $\rho \le 0.40$ on square Attention projections (`256×256`) and **52.8%** on MNIST MLPs — enabling hierarchical Base-3 Trit spectral quantization (`.tritq`) across a configurable `0.43–3.77 bpp` rate–distortion frontier.
 
 <p align="center">
-  <img src="docs/figures/fig1_weight_heatmaps.png" alt="Spatial Weight Structures: Standard AdamW vs Dirichlet Regularization" width="90%">
+  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig1_weight_heatmaps.png" alt="Spatial Weight Structures: Standard AdamW vs Dirichlet Regularization" width="90%">
 </p>
 
 > **Figure 1: Illustrative Spatial Weight Structures (MNIST MLP, 64×64 top-left patches).** 3-epoch MNIST MLP (`fc1` top, `fc2` bottom, unnormalized $\epsilon = 2 \times 10^{-3}$). Left: Standard AdamW yields high-frequency unstructured weights (edge-normalized $E_D = 0.0016$ on `fc1`). Right: 2D Dirichlet regularization induces smooth spatial manifolds ($E_D = 0.0001$, $-94\%$ roughness). On full TinyStories-10M Transformers (Table 2 of the preprint), mean $E_D$ drops by **$-72.1\%$** ($0.0123 \to 0.0034$ `numel`; $0.0062 \to 0.0017$ `edges`).
@@ -48,10 +48,10 @@ $$\mathcal{E}_D^{\text{numel}}(W) = \frac{1}{MN} \sum_{k=0}^{M-1}\sum_{l=0}^{N-1
 
 High-frequency modes $(k, l)$ are penalized quadratically, concentrating weight energy into the lowest 2D-DCT harmonics.
 
-> **Normalization note:** `dreg` provides `normalization="numel"` ($\frac{1}{MN}\sum \Delta^2 = 2\,\mathcal{E}_D^{\text{var}}$, default), `normalization="edges"` ($\approx \mathcal{E}_D^{\text{var}}$), and scale-invariant `normalization="rayleigh"` ($\frac{\sum \Delta^2}{2\|W\|_F^2} \in [0, 4]$, immune to $L_2$ magnitude shrinkage), plus `layer_weighting="param_weighted"` to balance gradient strength equally across square Attention and wide FFN layers. See [dreg/topology.py](dreg/topology.py) and §3.1 of the preprint.
+> **Normalization note:** `dreg` provides `normalization="numel"` ($\frac{1}{MN}\sum \Delta^2 = 2\,\mathcal{E}_D^{\text{var}}$, default), `normalization="edges"` ($\approx \mathcal{E}_D^{\text{var}}$), and scale-invariant `normalization="rayleigh"` ($\frac{\sum \Delta^2}{2\|W\|_F^2} \in [0, 4]$, immune to $L_2$ magnitude shrinkage), plus `layer_weighting="param_weighted"` to balance gradient strength equally across square Attention and wide FFN layers. See [dreg/topology.py](https://github.com/mcarbonell/dirichlet-regularization/blob/main/dreg/topology.py) and §3.1 of the preprint.
 
 <p align="center">
-  <img src="docs/figures/fig2_dct_energy_spectra.png" alt="2D-DCT Spectral Energy Compaction" width="90%">
+  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig2_dct_energy_spectra.png" alt="2D-DCT Spectral Energy Compaction" width="90%">
 </p>
 
 > **Figure 2: 2D-DCT Cumulative Spectral Energy (TinyStories-10M, Layer 3).** Cumulative Frobenius energy vs. normalized radius $\rho \in [0, \sqrt{2}]$. Standard AdamW stays flat ($\sim 13\text{--}14\%$ below $\rho = 0.40$). Dirichlet regularization concentrates **~72%** of energy below $\rho = 0.40$ in Attention $W_q$ (`256×256`), and **~25%** in the $4\times$ larger FFN gate projection (`256×1024`) due to $1/(MN)$ per-weight gradient scaling.
@@ -62,6 +62,11 @@ High-frequency modes $(k, l)$ are penalized quadratically, concentrating weight 
 
 ### Installation
 
+```bash
+pip install dirichlet-regularization
+```
+
+Or from source:
 ```bash
 git clone https://github.com/mcarbonell/dirichlet-regularization.git
 cd dirichlet-regularization
@@ -127,7 +132,7 @@ loss.backward()
 
 ### 1. TinyStories 10.56M Transformer (81.92M tokens, A10G GPU)
 
-Evaluated on 25 validation batches (204,800 tokens; full results in [results/pareto_curve_tinystories_results.json](results/pareto_curve_tinystories_results.json) and Preprint Table 5):
+Evaluated on 25 validation batches (204,800 tokens; full results in [results/pareto_curve_tinystories_results.json](https://github.com/mcarbonell/dirichlet-regularization/blob/main/results/pareto_curve_tinystories_results.json) and Preprint Table 5):
 
 | Quantization Regime | Radii $(r_0, r_1, r_2)$ | Linear Rate | Compression | Std PPL | Topo PPL ($\lambda=30$) | Dirichlet Gain |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -143,7 +148,7 @@ Evaluated on 25 validation batches (204,800 tokens; full results in [results/par
 * At `2.181 bpp`, Topographic TritQ (`23.08 PPL`) outperforms both Standard TritQ (`30.10 PPL`) and per-tensor Spatial INT2 RTN (`41.67 PPL` at `2.00 bpp`).
 
 <p align="center">
-  <img src="docs/figures/fig3_pareto_quantization.png" alt="Calibration Sweep and Empirical Rate-Distortion Frontier" width="95%">
+  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig3_pareto_quantization.png" alt="Calibration Sweep and Empirical Rate-Distortion Frontier" width="95%">
 </p>
 
 > **Figure 3: Calibration Sweep and Rate–Distortion Frontier (TinyStories-10M).** (a) 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0, 0.01, 5, 15, 30\}$, 2k steps) at `1.638 bpp`. (b) Converged 10k-step rate–distortion frontier across `1.638–3.774 bpp` (Preprint Table 5).
@@ -227,7 +232,7 @@ dirichlet-regularization/
 
 ## Preprint & Citation
 
-Read the full manuscript in [`paper/paper-draft.pdf`](paper/paper-draft.pdf):
+Read the full manuscript in [`paper/paper-draft.pdf`](https://github.com/mcarbonell/dirichlet-regularization/blob/main/paper/paper-draft.pdf):
 > **"Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization"**  
 > *Mario Raúl Carbonell Martínez (Independent Researcher)*
 
@@ -244,4 +249,4 @@ Read the full manuscript in [`paper/paper-draft.pdf`](paper/paper-draft.pdf):
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](https://github.com/mcarbonell/dirichlet-regularization/blob/main/LICENSE) file for details.
