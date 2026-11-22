@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dirichlet-regularization"
-version = "1.0.0"
+version = "1.1.0"
 authors = [
   { name = "Mario Raúl Carbonell Martínez", email = "marioraulcarbonell@gmail.com" }
 ]

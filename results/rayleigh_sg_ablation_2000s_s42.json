@@ -1,0 +1,128 @@
+[
+  {
+    "name": "std",
+    "normalization": "rayleigh_sg",
+    "topo_lambda": 0.0,
+    "anneal": false,
+    "train_time_s": 159.1,
+    "fp32_ppl": 9.33,
+    "mean_rayleigh": 1.9923,
+    "max_rms": 0.0379,
+    "max_w_crest": 6.34,
+    "attn_low_freq_pct": 12.64,
+    "ffn_low_freq_pct": 12.81,
+    "spatial_int4_ppl": 9.68,
+    "pareto": {
+      "Ultra-0.43b": 1346.39,
+      "Sub1-0.91b": 358.0,
+      "Calib-1.64b": 43.78,
+      "Mid-2.18b": 20.19,
+      "HiFi-2.79b": 12.94
+    }
+  },
+  {
+    "name": "rayleigh_sg_0.5",
+    "normalization": "rayleigh_sg",
+    "topo_lambda": 0.5,
+    "anneal": false,
+    "train_time_s": 174.9,
+    "fp32_ppl": 22.13,
+    "mean_rayleigh": 0.3347,
+    "max_rms": 0.0191,
+    "max_w_crest": 8.8,
+    "attn_low_freq_pct": 84.74,
+    "ffn_low_freq_pct": 91.22,
+    "spatial_int4_ppl": 22.57,
+    "pareto": {
+      "Ultra-0.43b": 138.22,
+      "Sub1-0.91b": 50.67,
+      "Calib-1.64b": 28.31,
+      "Mid-2.18b": 24.39,
+      "HiFi-2.79b": 23.14
+    }
+  },
+  {
+    "name": "rayleigh_sg_1.0",
+    "normalization": "rayleigh_sg",
+    "topo_lambda": 1.0,
+    "anneal": false,
+    "train_time_s": 178.0,
+    "fp32_ppl": 24.27,
+    "mean_rayleigh": 0.1933,
+    "max_rms": 0.015,
+    "max_w_crest": 8.58,
+    "attn_low_freq_pct": 92.35,
+    "ffn_low_freq_pct": 95.98,
+    "spatial_int4_ppl": 24.51,
+    "pareto": {
+      "Ultra-0.43b": 61.5,
+      "Sub1-0.91b": 36.45,
+      "Calib-1.64b": 27.71,
+      "Mid-2.18b": 25.61,
+      "HiFi-2.79b": 24.91
+    }
+  },
+  {
+    "name": "rayleigh_sg_2.0",
+    "normalization": "rayleigh_sg",
+    "topo_lambda": 2.0,
+    "anneal": false,
+    "train_time_s": 176.2,
+    "fp32_ppl": 26.63,
+    "mean_rayleigh": 0.1382,
+    "max_rms": 0.0118,
+    "max_w_crest": 10.8,
+    "attn_low_freq_pct": 95.29,
+    "ffn_low_freq_pct": 97.64,
+    "spatial_int4_ppl": 26.8,
+    "pareto": {
+      "Ultra-0.43b": 42.82,
+      "Sub1-0.91b": 33.38,
+      "Calib-1.64b": 29.27,
+      "Mid-2.18b": 28.03,
+      "HiFi-2.79b": 27.32
+    }
+  },
+  {
+    "name": "rayleigh_sg_anneal2",
+    "normalization": "rayleigh_sg",
+    "topo_lambda": 2.0,
+    "anneal": true,
+    "train_time_s": 174.2,
+    "fp32_ppl": 27.25,
+    "mean_rayleigh": 1.8112,
+    "max_rms": 0.0193,
+    "max_w_crest": 13.56,
+    "attn_low_freq_pct": 43.89,
+    "ffn_low_freq_pct": 41.6,
+    "spatial_int4_ppl": 27.5,
+    "pareto": {
+      "Ultra-0.43b": 101.17,
+      "Sub1-0.91b": 39.02,
+      "Calib-1.64b": 30.73,
+      "Mid-2.18b": 29.36,
+      "HiFi-2.79b": 28.5
+    }
+  },
+  {
+    "name": "edges_pw_30",
+    "normalization": "edges",
+    "topo_lambda": 30.0,
+    "anneal": false,
+    "train_time_s": 170.9,
+    "fp32_ppl": 9.43,
+    "mean_rayleigh": 1.8043,
+    "max_rms": 0.0344,
+    "max_w_crest": 7.82,
+    "attn_low_freq_pct": 18.46,
+    "ffn_low_freq_pct": 15.64,
+    "spatial_int4_ppl": 9.79,
+    "pareto": {
+      "Ultra-0.43b": 1571.22,
+      "Sub1-0.91b": 312.34,
+      "Calib-1.64b": 40.48,
+      "Mid-2.18b": 17.7,
+      "HiFi-2.79b": 12.54
+    }
+  }
+]

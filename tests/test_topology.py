@@ -300,3 +300,29 @@ class TestDirichletScheduler:
         assert sched2.min_weight_decay == pytest.approx(0.002)
         assert loss_fn2.weight_decay == pytest.approx(sched.get_weight_decay(2))
 
+
+class TestRayleighStopGradient:
+    def test_forward_matches_rayleigh_and_has_zero_dc_anti_decay(self):
+        """rayleigh_sg must equal rayleigh in forward while having identically zero DC gradient."""
+        torch.manual_seed(0)
+        w0 = torch.randn(32, 32) + 0.5  # non-zero DC mean
+        w_ray = w0.clone().requires_grad_(True)
+        w_sg = w0.clone().requires_grad_(True)
+
+        e_ray = dirichlet_energy_2d(w_ray, normalization="rayleigh")
+        e_sg = dirichlet_energy_2d(w_sg, normalization="rayleigh_sg")
+        assert e_sg.item() == pytest.approx(e_ray.item(), rel=1e-6)
+
+        e_ray.backward()
+        e_sg.backward()
+        # rayleigh has non-zero DC gradient (anti-decay inflates mean/norm)
+        assert abs(w_ray.grad.sum().item()) > 1e-2
+        # rayleigh_sg is pure Neumann Laplacian diffusion: sum(grad) == 0 identically
+        assert abs(w_sg.grad.sum().item()) < 1e-5
+        # Scale-invariance of forward value
+        w_scaled = (w0 * 7.5).detach()
+        assert dirichlet_energy_2d(w_scaled, normalization="rayleigh_sg").item() == pytest.approx(
+            e_sg.item(), rel=1e-5
+        )
+
+

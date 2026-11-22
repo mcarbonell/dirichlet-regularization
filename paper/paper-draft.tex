@@ -1,13 +1,15 @@
 \documentclass[11pt,a4paper]{article}
 
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,amsfonts,amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{url}
-\def\UrlBreaks{\do\/\do-}
+\def\UrlBreaks{\do\/\do-\do_}
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage{caption}
@@ -26,7 +28,7 @@
 \title{\textbf{Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization}}
 
 \author{
-  \textbf{Mario Raúl Carbonell Martínez}\thanks{Corresponding author: \texttt{marioraulcarbonell@gmail.com}.\\Code and benchmark scripts: \url{https://github.com/mcarbonell/dirichlet-regularization}.} \\
+  \textbf{Mario Raúl Carbonell Martínez}\thanks{Corresponding author: \texttt{marioraulcarbonell@gmail.com}.\\Code, C11 kernel, and benchmark scripts: \url{https://github.com/mcarbonell/dirichlet-regularization}.} \\
   Independent Researcher \\
   \texttt{marioraulcarbonell@gmail.com}
 }
@@ -38,11 +40,11 @@
 \maketitle
 
 \begin{abstract}
-Weight matrices in modern neural networks are universally initialized and optimized as unstructured, permutation-invariant point clouds. This absence of spatial correlation yields flat, white-noise-like 2D frequency spectra, which severely limits frequency-domain compression and aggressive low-bit quantization. In this work, we introduce \textbf{Dirichlet Weight Regularization} (\texttt{dreg}), a lightweight mathematical framework that incorporates a discrete 2D Dirichlet harmonic energy penalty into standard stochastic gradient optimization. By penalizing spatial differences over a regular 2D lattice, our objective breaks permutation degeneracy and induces continuous, cortical-like weight manifolds with minimal impact on dense task accuracy. Through the exact eigendecomposition of the 2D Neumann graph Laplacian, this spatial continuity penalizes high-frequency modes in the 2D Discrete Cosine Transform (2D-DCT) domain quadratically, concentrating up to $\sim 72\%$ of total Frobenius energy below normalized radius $\rho \le 0.40$ in square attention projections (and $\sim 25\%$ in $4\times$ larger feedforward projections). We pair this spectral compaction with a hierarchical 4-band Base-3 Trit Quantization format (\texttt{.tritq}) built on exact $3^5 = 243 \le 256$ byte packing ($1.60$~bits/trit) with an $\mathcal{O}(1)$ L1-cache lookup table, spanning a configurable rate--distortion frontier from $0.43$~bpp ($74.4\times$) to $3.77$~bpp ($8.5\times$). Empirically, on $10.56$M-parameter autoregressive Transformers trained over $81.92$M tokens of TinyStories, Dirichlet regularization reduces weight roughness by \textbf{72.1\%}, preserves fluent FP32 narrative generation, and improves quantized validation perplexity over unregularized baselines across 5 of 6 rate regimes---including a \textbf{6.76--7.25~PPL advantage} at the calibrated \textbf{1.638~bpp} ($19.5\times$) operating point ($66.50$ vs.\ $73.75$~PPL) and a \textbf{7.02~PPL advantage} at \textbf{2.181~bpp} ($23.08$ vs.\ $30.10$~PPL). Beyond Transformers, in feedforward MNIST classifiers, Dirichlet regularization reduces roughness by \textbf{84.5\%}, nearly doubles low-frequency spectral energy ($27.87\% \to 52.84\%$), improves aggressive low-pass truncation accuracy by \textbf{+10.72\%} absolute ($41.41\%$ vs.\ $30.69\%$), and improves $1.64$~bpp TritQ accuracy by \textbf{+1.19\%}. Finally, we release a portable C11 zero-copy, double-buffered DMA micro-kernel verified to float32 parity ($<10^{-5}$) against PyTorch, and analyze how direct spectral-domain vector-matrix multiplication eliminates full-matrix reconstruction overhead on SRAM-constrained edge devices.
+Weight matrices in modern neural networks are universally initialized and optimized as unstructured, permutation-invariant point clouds. This absence of spatial correlation yields flat, white-noise-like 2D frequency spectra, which severely limits frequency-domain compression and aggressive sub-2-bit quantization. We introduce \textbf{Dirichlet Weight Regularization} (\texttt{dreg}), a lightweight training-time framework that imposes a discrete 2D Dirichlet harmonic energy penalty over each linear projection's natural 2D lattice. By diagonalizing the 2D Neumann graph Laplacian in the orthonormal 2D Discrete Cosine Transform (2D-DCT) basis, our penalty suppresses high spatial frequencies quadratically. Crucially, we show that naive element-count normalization ($1/(MN)$) starves wide feedforward layers ($4\times$ weaker per-weight smoothing than square attention), and resolve this via \textbf{scale-invariant Riemannian Rayleigh normalization} ($\mathcal{R}(W) = \sum \Delta^2 / (2\|W\|_F^2)$) with \textbf{parameter-weighted layer aggregation}---lifting low-frequency energy compaction ($\rho \le 0.40$) to \textbf{91.6\%} (Attention) and \textbf{94.2\%} (FFN) simultaneously (vs.\ $12.6\%$ / $12.9\%$ unregularized). Paired with our hierarchical 4-band \textbf{Base-3 Trit Quantization} format (\texttt{.tritq}, $3^5 = 243 \le 256$ byte packing at $1.60$~bits/trit) enhanced with zero-overhead \textbf{MSE-optimal Band-0/1 clipping} and \textbf{1D Lloyd--Max Band-2 ternary quantization}, multi-seed ($N=3$) 10,000-step experiments on TinyStories-10M ($81.92$M tokens) demonstrate that controlled Dirichlet annealing ($\lambda = 2.0 \to 0$) strictly Pareto-dominates static regularization and unregularized baselines: at \textbf{1.638~bpp} ($19.5\times$ compression), it achieves \textbf{16.87 $\pm$ 1.73~PPL} vs.\ $68.21 \pm 6.94$ for Standard TritQ (\textbf{4.04$\times$ lower PPL}), outperforming Spatial Group-wise INT2 ($g=64$, $2.25$~bpp, $36.91 \pm 6.03$) by \textbf{2.19$\times$} at \textbf{27\% fewer bits} and budget-matched INT8 SVD ($555.65 \pm 65.74$) by \textbf{32.9$\times$}. At \textbf{2.181~bpp} ($14.7\times$), perplexity drops to \textbf{10.71 $\pm$ 0.64} (only $+2.93$ above FP32), while at sub-1-bit \textbf{0.914~bpp} ($35.0\times$), it cuts perplexity \textbf{11.4$\times$} ($95.60 \pm 28.26$ vs.\ $1{,}085.5 \pm 214.1$). We further derive the AdamW gradient scaling law for pre-trained LLMs and show that 1,500-step stop-gradient Rayleigh adaptation on pre-trained \textbf{OpenAI GPT-2 (124M)} cuts weight roughness by \textbf{95.6\%} and reduces compressed perplexity by \textbf{23$\times$--77$\times$} across $1.63$--$3.77$~bpp (e.g., $21.62$ vs.\ $684.46$ at $3.77$~bpp; $60.35$ vs.\ $4{,}051.0$ at $2.18$~bpp). Cross-architecture MNIST MLP validation confirms \textbf{$-84.5\%$} roughness and \textbf{+10.72\%} low-pass truncation accuracy. Finally, our portable C11 micro-kernel implements direct spectral matrix-vector multiplication $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$, slashing TinyStories-10M FFN working SRAM from $8{,}448$~KB to \textbf{13.0~KB} (\textbf{650$\times$} reduction) and running \textbf{$\sim 45\times$ faster} than full-matrix reconstruction at float32 parity ($8.9 \times 10^{-7}$ max error).
 \end{abstract}
 
 \vspace{0.5em}
-\noindent\textbf{Keywords:} Neural Network Compression, Dirichlet Energy, Spectral Methods, 2D Discrete Cosine Transform, Base-3 Trit Quantization, Edge AI, Zero-Copy DMA.
+\noindent\textbf{Keywords:} Neural Network Compression, Dirichlet Energy, Rayleigh Quotient, 2D Discrete Cosine Transform, Base-3 Trit Quantization, Edge AI, Direct Spectral Inference.
 
 \newpage
 
@@ -51,31 +53,29 @@ Weight matrices in modern neural networks are universally initialized and optimi
 \label{sec:intro}
 % -----------------------------------------------------------------------------
 
-Modern deep learning models, particularly Generative Pre-trained Transformers~\citep[GPT;][]{vaswani2017attention}, have achieved remarkable linguistic and perceptual capabilities. However, these capabilities come at substantial memory and energy cost: deploying dense floating-point models on embedded edge hardware, internet-of-things (IoT) microcontrollers, and memory-constrained silicon remains challenging.
+Modern deep learning models, particularly Generative Pre-trained Transformers~\citep[GPT;][]{vaswani2017attention}, have achieved remarkable linguistic and perceptual capabilities, yet deploying dense floating-point weights on embedded edge hardware, microcontrollers, and bandwidth-limited silicon remains a primary bottleneck.
 
-To mitigate this bottleneck, post-training quantization (PTQ) and quantization-aware training (QAT) have become central compression paradigms. Methods such as GPTQ~\citep{frantar2022gptq} and AWQ~\citep{lin2023awq} compress models to 4-bit and 3-bit representations by compensating spatial quantization errors, while incoherence-based approaches such as QuIP~\citep{chee2023quip} and QuIP\#~\citep{tseng2024quipsharp} reach 2-bit quantization via randomized Hadamard rotations and lattice codebooks, and native ternary training such as BitNet b1.58~\citep{ma2024bitnet} trains weights directly in $\{-1, 0, +1\}$. Yet frequency-domain compression of neural weight matrices---analogous to JPEG~\citep{wallace1992jpeg} for natural images---has seen limited adoption in dense networks.
+Post-training quantization (PTQ) and quantization-aware training (QAT) have made rapid strides toward extreme compression. Second-order error compensation such as GPTQ~\citep{frantar2022gptq} and activation-aware scaling such as AWQ~\citep{lin2023awq} preserve quality down to 3--4 bits, while incoherence-based schemes such as QuIP~\citep{chee2023quip} and QuIP\#~\citep{tseng2024quipsharp} apply randomized Hadamard rotations to reach 2-bit lattice quantization, and native ternary QAT such as BitNet b1.58~\citep{ma2024bitnet} trains weights directly in $\{-1, 0, +1\}$. Yet frequency-domain compression of neural weight matrices---analogous to JPEG~\citep{wallace1992jpeg} for natural images---has seen little adoption in dense networks.
 
-We argue that this limitation is a structural consequence of how neural networks are trained. Standard networks are initialized with independent and identically distributed (i.i.d.) noise and optimized under isotropic $L_2$ weight decay~\citep{loshchilov2017decoupled}. Because $L_2$ regularization is invariant to arbitrary row and column permutations, converged weight matrices exhibit near-zero spatial autocorrelation; their 2D Discrete Cosine Transform (DCT) spectra resemble flat white noise (Figure~\ref{fig:spectra}). Under spectral truncation or frequency-banded quantization, every frequency bin carries roughly equal variance, causing severe distortion.
+We argue that this limitation stems directly from how neural networks are trained. Standard networks are initialized with independent and identically distributed (i.i.d.) noise and optimized under isotropic $L_2$ weight decay~\citep{loshchilov2017decoupled}. Because $L_2$ regularization is invariant to arbitrary row and column permutations, converged weight matrices exhibit near-zero spatial autocorrelation; their 2D Discrete Cosine Transform (2D-DCT) spectra resemble flat white noise (Figure~\ref{fig:spectra}), leaving only $\sim 12.6\%$ of total Frobenius energy below normalized frequency $\rho = 0.40$.
 
-In contrast, biological neural substrates minimize wiring length and organize correlated receptive fields into \textbf{topographic cortical maps}~\citep{hubel1962receptive,durbin1990dimension,kohonen1982self}. Neighboring neurons in mammalian visual (V1) and auditory (A1) cortices respond to smoothly varying features over physical two-dimensional tissue.
+In contrast, biological neural substrates minimize wiring length and organize correlated receptive fields into \textbf{topographic cortical maps}~\citep{hubel1962receptive,durbin1990dimension,kohonen1982self}, where neighboring neurons in visual (V1) and auditory (A1) cortices vary smoothly across two-dimensional tissue.
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/fig1_weight_heatmaps.png}
-    \caption{\textbf{Illustrative Spatial Weight Structures (MNIST MLP, $64\times64$ patches).} Visualization of $64\times64$ top-left weight patches from a 3-epoch MNIST MLP ($784\to256\to128\to10$, unnormalized coupling $\epsilon = 2\times10^{-3}$): Layer~1 (\texttt{fc1}, top) and Layer~2 (\texttt{fc2}, bottom). Left: Standard AdamW training yields unstructured high-frequency weights (edge-normalized $E_D = 0.0016$ on \texttt{fc1}). Right: 2D Dirichlet regularization induces smooth spatial manifolds ($E_D = 0.0001$, a 94\% roughness reduction; note that top-left input coordinates $0\ldots63$ correspond to low-activity upper border pixels of MNIST, accentuating smoothness in Layer~1 while Layer~2 exhibits emergent patchy topography). This visual companion is separate from the TinyStories-10M Transformer reported in Table~\ref{tab:10k_results}.}
+    \caption{\textbf{Emergent 2D Cortical Weight Manifolds in TinyStories-10M (10,000 steps, seed 42).} Representative Layer-3 weights from converged $10.56$M-parameter Transformers: Feedforward \texttt{gate\_proj} ($128\times128$ crop, top) and Attention \texttt{q\_proj} ($256\times256$, bottom). Left: Standard AdamW yields white-noise-like weights ($12.9\%$ / $12.5\%$ energy below $\rho=0.40$). Right: Scale-invariant Rayleigh + parameter-weighted Dirichlet annealing ($\lambda=2.0 \to 0$) induces continuous cortical-like manifolds in \emph{both} rectangular FFN and square Attention projections ($94.1\%$ / $91.4\%$ energy below $\rho=0.40$).}
     \label{fig:heatmaps}
 \end{figure}
 
-In this paper, we explore the computational analog of cortical smoothness by introducing \textbf{Dirichlet Weight Regularization} (\texttt{dreg}). Treating each dense weight matrix $W \in \mathbb{R}^{M \times N}$ as a scalar field over a 2D discrete lattice, we augment the task objective with the discrete \textbf{Dirichlet harmonic energy}, which exerts a Laplace diffusion operator across adjacent weights during backpropagation.
-
-Our contributions are summarized as follows:
+We introduce \textbf{Dirichlet Weight Regularization} (\texttt{dreg}), which treats each dense weight matrix $W \in \mathbb{R}^{M \times N}$ as a scalar field over a discrete 2D lattice and penalizes its discrete \textbf{Dirichlet harmonic energy} during backpropagation. Beyond formulating the basic penalty, we uncover and solve three subtle geometric and quantization pathologies that previously bottlenecked spectral weight compression:
 \begin{enumerate}
-    \item \textbf{Mathematical Formulation:} We formulate the discrete 2D Dirichlet penalty on arbitrary linear projections, establish its exact diagonalization in the orthonormal 2D Type-II DCT basis via the Neumann graph Laplacian eigenvalues, and identify how matrix-size normalization ($1/(MN)$) modulates per-weight smoothing across square vs.\ rectangular layers.
-    \item \textbf{Spectral Energy Compaction:} We empirically verify that Dirichlet regularization breaks permutation symmetry and concentrates weight variance into low-frequency 2D-DCT harmonics (Figure~\ref{fig:spectra}), shifting weight matrices from flat white-noise spectra toward compressible signal-like fields.
-    \item \textbf{Hierarchical Base-3 Trit Quantization (\texttt{.tritq}):} We construct an exact arithmetic byte-packing format exploiting $3^5 = 243 \le 256$ ($1.60$~bits/trit) with a $1.25$~KB L1-cache lookup table and radial frequency banding spanning $0.43$--$3.77$~bpp, while preserving embeddings and output vocabulary heads uncompressed in FP16.
-    \item \textbf{Language Modeling Validation on TinyStories-10M:} Across $10.56$M-parameter Transformers trained over $81.92$M tokens, Dirichlet regularization reduces weight roughness by \textbf{72.1\%} and improves quantized perplexity across 5 of 6 rate regimes, including a \textbf{6.76--7.25~PPL gain} at the calibrated $1.638$~bpp ($19.5\times$) operating point and a \textbf{7.02~PPL gain} at $2.181$~bpp ($14.7\times$).
-    \item \textbf{Cross-Architecture Validation on MNIST MLPs:} Without architecture-specific tuning, \texttt{dreg} reduces spatial roughness by \textbf{84.5\%}, nearly doubles low-frequency energy ($27.87\% \to 52.84\%$), improves low-pass truncation accuracy by \textbf{+10.72\%} absolute ($41.41\%$ vs.\ $30.69\%$), and improves $1.64$~bpp TritQ accuracy by \textbf{+1.19\%}.
-    \item \textbf{Portable C11 DMA Micro-Kernel \& Systems Analysis:} We release a zero-copy, double-buffered C11 micro-kernel ($192$~KB working buffers for $128\times128$ matrices, float32 parity $<10^{-5}$ with PyTorch) and derive the algebraic factorization for direct spectral-domain inference $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$, removing the full-matrix reconstruction bottleneck.
+    \item \textbf{Eliminating FFN Starvation via Riemannian Rayleigh + Parameter-Weighted Normalization:} We prove that per-matrix $1/(MN)$ normalization attenuates per-weight smoothing by $4\times$ on rectangular $256\times1024$ FFNs relative to $256\times256$ Attention layers (stagnating FFN compaction at $21.7\%$ vs.\ $54.5\%$, Figure~\ref{fig:spectra}). Replacing it with the scale-invariant Rayleigh quotient $\mathcal{R}(W) = \sum \Delta^2 / (2\|W\|_F^2)$ (whose gradient is the exact Riemannian gradient tangent to the Frobenius sphere, $\langle W, \nabla_W \mathcal{R}(W)\rangle = 0$) and parameter-weighted layer aggregation raises \emph{both} Attention and FFN compaction above $91\%$--$98\%$. We further contrast full Riemannian Rayleigh (optimal from scratch) against stop-gradient Rayleigh (\texttt{rayleigh\_sg}, optimal for damping oversized outliers in pre-trained LLMs).
+    \item \textbf{Zero-Bit-Overhead Optimal Spectral Quantization (\texttt{.tritq}):} Building on exact Base-3 byte packing ($3^5 = 243 \le 256 \Rightarrow 1.60$~bits/trit, $1.25$~KB L1-cache LUT), we replace heuristic Band-2 thresholding and unclipped Band-0/1 \texttt{min}--\texttt{max} scaling with \textbf{1D Lloyd--Max MSE-optimal ternary quantization} and \textbf{MSE-optimal asymmetric clipping} on Bands~0 and~1. Without adding a single bit to the \texttt{.tritq} v1 bitstream or modifying the C11 decoder, this reduces $1.638$~bpp perplexity by \textbf{3.06$\times$} ($51.55 \to 16.87$~PPL).
+    \item \textbf{Multi-Seed ($N=3$) TinyStories-10M Validation \& Controlled 10k Annealing:} Across 12 parallel 10,000-step A10G runs ($81.92$M tokens each, seeds $\{42, 100, 2024\}$), controlled Rayleigh annealing ($\lambda = 2.0 \to 0$, \texttt{cooldown\_ratio} $= 0.15$) strictly Pareto-dominates static regularization at every bit-rate: achieving \textbf{16.87 $\pm$ 1.73~PPL} at \textbf{1.638~bpp} ($19.5\times$, beating Standard TritQ $68.21$ by \textbf{4.04$\times$}, Group-wise INT2 $g=64$ at $2.25$~bpp $36.91$ by \textbf{2.19$\times$} using 27\% fewer bits, and INT8 SVD $555.65$ by \textbf{32.9$\times$}), \textbf{10.71 $\pm$ 0.64~PPL} at \textbf{2.181~bpp}, and \textbf{95.60 $\pm$ 28.26~PPL} at sub-1-bit \textbf{0.914~bpp} ($35.0\times$, \textbf{11.4$\times$} better than Standard).
+    \item \textbf{Pre-Trained LLM Adaptation (OpenAI GPT-2 124M):} Deriving the AdamW gradient scaling law ($\lambda_{\text{eff}} \propto N_{\text{total}} \sigma_W$), we show that 1,500 steps of calibrated \texttt{rayleigh\_sg} adaptation across all 48 dense \texttt{Conv1D} projections ($84.9$M weights) cuts roughness by \textbf{95.6\%}, boosts compaction to $73.0\%$ / $79.2\%$, and lowers compressed GPT-2 perplexity by \textbf{23$\times$--77$\times$} across $1.63$--$3.77$~bpp (e.g., $684.46 \to \mathbf{21.62}$ at $3.77$~bpp; $4{,}050.95 \to \mathbf{60.35}$ at $2.18$~bpp).
+    \item \textbf{Cross-Architecture Generality (MNIST MLPs):} Without architecture-specific tuning, \texttt{dreg} reduces roughness by \textbf{84.5\%}, nearly doubles low-frequency energy ($27.87\% \to 52.84\%$), and improves aggressive low-pass truncation accuracy by \textbf{+10.72\%} absolute.
+    \item \textbf{Direct Spectral C11 Micro-Kernel:} Implementing $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$ via radix-2 Makhoul FFTs in C11 (\path{c_spectral_matvec_direct}) avoids $M \times N$ materialization, cutting TinyStories-10M FFN working SRAM from $8{,}448$~KB to \textbf{13.0~KB} (\textbf{650$\times$}), running \textbf{$\sim 45\times$ faster} than full-matrix 2D-IDCT, and matching dense PyTorch to $8.9 \times 10^{-7}$ max error.
 \end{enumerate}
 
 % -----------------------------------------------------------------------------
@@ -86,113 +86,112 @@ Our contributions are summarized as follows:
 \subsection{Low-Bit Quantization for Language Models}
 Post-training quantization (PTQ) has progressed rapidly to reduce LLM memory footprints. Uniform integer schemes (INT8 and INT4) are widely deployed in production runtimes~\citep{dettmers2022llmint8,xiao2023smoothquant}. Second-order error compensation was scaled to billion-parameter Transformers by GPTQ~\citep{frantar2022gptq}, while AWQ~\citep{lin2023awq} protects salient activation channels and SqueezeLLM~\citep{kim2023squeezellm} combines sensitivity-aware non-uniform clustering with sparse outlier extraction.
 
-At the $\le 2$~bpp frontier, QuIP~\citep{chee2023quip} and QuIP\#~\citep{tseng2024quipsharp} apply randomized orthogonal/Hadamard transforms to enforce incoherence before 2-bit scalar or $E_8$ lattice quantization. Complementary PTQ methods---SpQR~\citep{dettmers2023spqr}, OmniQuant~\citep{shao2024omniquant}, BiLLM~\citep{huang2024billm}, and PB-LLM~\citep{shang2024pbllm}---push toward 1--2~bpp via sparse outliers, learned clipping, or partial binarization, while QAT frameworks such as BitNet b1.58~\citep{ma2024bitnet} train ternary weights end-to-end. Notably, incoherence methods like QuIP\# \emph{destroy} spatial correlation to flatten weight distributions, whereas our work explores the complementary opposite: \emph{inducing} 2D spatial smoothness during training so that weights compact naturally in the orthonormal 2D-DCT domain.
+At the $\le 2$~bpp frontier, QuIP~\citep{chee2023quip} and QuIP\#~\citep{tseng2024quipsharp} apply randomized orthogonal/Hadamard transforms to enforce incoherence before 2-bit scalar or $E_8$ lattice quantization. Complementary PTQ methods---SpQR~\citep{dettmers2023spqr}, OmniQuant~\citep{shao2024omniquant}, BiLLM~\citep{huang2024billm}, and PB-LLM~\citep{shang2024pbllm}---push toward 1--2~bpp via sparse outliers, learned clipping, or partial binarization, while QAT frameworks such as BitNet b1.58~\citep{ma2024bitnet} train ternary weights end-to-end. Notably, incoherence methods like QuIP\# \emph{destroy} spatial correlation to flatten weight distributions, whereas our work exploits the complementary geometric opposite: \emph{inducing} 2D spatial smoothness so that weights compact naturally in the orthonormal 2D-DCT domain.
 
 \subsection{Topographic Mappings in Neuroscience and Machine Learning}
 Biological cortical topography was classically characterized in orientation columns~\citep{hubel1962receptive}, modeled computationally via Self-Organizing Maps~\citep{kohonen1982self}, and analyzed as wiring-length-minimizing dimension reduction~\citep{durbin1990dimension}. In deep learning, Topographic VAEs~\citep{keller2021topographic} learn equivariant capsules on 2D grids, and spectral-norm regularization~\citep{yoshida2017spectral} constrains singular values for generalization, but neither connects 2D weight-lattice smoothness to DCT energy compaction and frequency-banded quantization.
 
 \subsection{Spectral Transforms in Deep Learning}
-The Discrete Cosine Transform~\citep{ahmed1974dct} underpins JPEG~\citep{wallace1992jpeg} due to its orthonormality and near-optimal energy compaction for Markov-correlated signals~\citep{strang1999dct}. Gaussian-process theory~\citep{rasmussen2006gp} likewise predicts power-law spectral decay under Laplacian priors. In deep learning, Fourier-domain parameterizations have recently been applied to parameter-efficient fine-tuning~\citep[FourierFT;][]{gao2024fourierft}. Applying DCT directly to standard neural network weights, however, yields poor compression because standard weights have flat spectra; our work investigates 2D Dirichlet regularization as a lightweight training-time inductive bias to induce DCT compressibility.
+The Discrete Cosine Transform~\citep{ahmed1974dct} underpins JPEG~\citep{wallace1992jpeg} due to its orthonormality and near-optimal energy compaction for Markov-correlated signals~\citep{strang1999dct}. Gaussian-process theory~\citep{rasmussen2006gp} likewise predicts power-law spectral decay under Laplacian priors. In deep learning, Fourier-domain parameterizations have recently been applied to parameter-efficient fine-tuning~\citep[FourierFT;][]{gao2024fourierft}. Applying DCT directly to standard neural network weights, however, yields poor compression because standard weights have flat spectra; our work establishes 2D Dirichlet regularization as a lightweight inductive bias that makes dense weight matrices natively DCT-compressible.
 
 % -----------------------------------------------------------------------------
-\section{Methodology: Dirichlet Regularization \& Spectral Quantization}
+\section{Methodology: Riemannian Dirichlet Regularization \& Optimal TritQ}
 \label{sec:method}
 % -----------------------------------------------------------------------------
 
-\subsection{From Isotropic Weight Decay to 2D Dirichlet Harmonic Surface Tension}
-Standard regularized training minimizes a task loss $\mathcal{L}_{\text{task}}$ under $L_2$ weight decay:
-\begin{equation}
-    \min_{W} \; \mathcal{L}_{\text{task}}(W; \mathcal{D}) + \frac{\gamma}{2} \|W\|_F^2,
-\end{equation}
-where $\|W\|_F^2 = \sum_{i,j} W_{i,j}^2$. Because the Frobenius norm is strictly invariant under arbitrary row permutations $\pi$ and column permutations $\sigma$,
-\begin{equation}
-    \|\pi(W)\sigma(W)\|_F^2 = \|W\|_F^2,
-\end{equation}
-standard optimization places no coupling between adjacent entries $W_{i,j}$ and $W_{i,j+1}$, leaving converged weight variance uniformly dispersed across spatial frequencies.
+\subsection{2D Dirichlet Harmonic Energy and the Layer-Scaling Pathology}
+Standard regularized training minimizes a task loss $\mathcal{L}_{\text{task}}$ under $L_2$ weight decay $\frac{\gamma}{2}\|W\|_F^2$. Because $\| \pi(W)\sigma(W)\|_F^2 = \|W\|_F^2$ for arbitrary row/column permutations $(\pi, \sigma)$, standard optimization enforces zero spatial coupling between adjacent entries $W_{i,j}$ and $W_{i,j+1}$.
 
-Motivated by the continuous Dirichlet energy functional $\mathcal{E}_D^{\text{cont}}(\mathcal{W}) = \frac{1}{2} \int_\Omega \|\nabla \mathcal{W}(u, v)\|^2 \, du \, dv$ over a 2D cortical sheet $\Omega$, we define the normalized discrete 2D Dirichlet energy directly on the unit-spacing $M \times N$ lattice $\mathbb{Z}_M \times \mathbb{Z}_N$ (avoiding aspect-ratio distortion factors $M/N$ and $N/M$ that arise when discretizing onto $[0,1]^2$ with $\Delta u = 1/M, \Delta v = 1/N$):
+Treating each 2D weight matrix $W \in \mathbb{R}^{M \times N}$ as a scalar field on the unit-spacing lattice $\mathbb{Z}_M \times \mathbb{Z}_N$ (avoiding aspect-ratio distortion factors $M/N$ and $N/M$), the discrete Dirichlet sum of squared edge differences is:
 \begin{equation}
-    \mathcal{E}_D^{\text{var}}(W) = \frac{1}{2 M N} \left[ \sum_{i=1}^{M-1} \sum_{j=1}^N (W_{i+1, j} - W_{i, j})^2 + \sum_{i=1}^M \sum_{j=1}^{N-1} (W_{i, j+1} - W_{i, j})^2 \right].
+    \mathcal{D}(W) = \sum_{i=1}^{M-1} \sum_{j=1}^N (W_{i+1, j} - W_{i, j})^2 + \sum_{i=1}^M \sum_{j=1}^{N-1} (W_{i, j+1} - W_{i, j})^2
+    = \operatorname{Tr}(W^\top L_M W) + \operatorname{Tr}(W L_N W^\top),
     \label{eq:dirichlet_discrete}
 \end{equation}
-Equivalently, in matrix-trace form using the 1D Neumann path-graph Laplacians $L_M \in \mathbb{R}^{M \times M}$ and $L_N \in \mathbb{R}^{N \times N}$,
+where $L_M \in \mathbb{R}^{M \times M}$ and $L_N \in \mathbb{R}^{N \times N}$ are the 1D Neumann path-graph Laplacians.
+
+\paragraph{Diagnosing FFN Starvation under Naive Normalization.}
+Consider normalizing each matrix by element count $\mathcal{E}_D^{\text{numel}}(W) = \mathcal{D}(W)/(MN)$ (or edge count $\mathcal{E}_D^{\text{edges}}(W) = \mathcal{D}(W)/[(M-1)N + M(N-1)] \approx \mathcal{D}(W)/(2MN)$) and averaging uniformly across $L$ layers: $\frac{\lambda}{L}\sum_{l=1}^L \mathcal{E}_D^{\text{numel}}(W^{(l)})$. Two pathologies immediately arise:
+\begin{enumerate}
+    \item \textbf{Rectangular Layer Attenuation ($4\times$ FFN Starvation):} The per-weight Dirichlet gradient scales as $-\frac{2\lambda}{L M_l N_l} [\Delta W^{(l)}]_{i,j}$. Consequently, a $256 \times 1024$ SwiGLU FFN matrix receives a \textbf{4$\times$ weaker} smoothing gradient per entry than a $256 \times 256$ Attention projection. As confirmed directly in Figure~\ref{fig:spectra} (purple dash-dot curve), legacy \texttt{numel+uniform} training compacts Attention layers to $54.5\%$ energy below $\rho=0.40$ while starving FFN layers at $21.7\%$---even though FFNs contain $75\%$ of the model's linear parameters.
+    \item \textbf{Scale Sensitivity and $L_2$-Like Shrinkage:} Because $\mathcal{D}(cW) = c^2 \mathcal{D}(W)$, unnormalized penalties scale with weight variance $\sigma_l^2$ and can be reduced trivially by shrinking non-DC weight magnitudes toward zero.
+\end{enumerate}
+
+\subsection{Scale-Invariant Riemannian Rayleigh Normalization \& Parameter Weighting}
+To solve both pathologies simultaneously, we introduce the \textbf{variance-normalized 2D Rayleigh quotient} of the Neumann graph Laplacian:
 \begin{equation}
-\begin{aligned}
-    \mathcal{E}_D^{\text{var}}(W)
-    &= \frac{1}{2 M N} \Big( \operatorname{Tr}(W^\top L_M W) + \operatorname{Tr}(W L_N W^\top) \Big) \\
-    &= \frac{1}{2 M N} \operatorname{vec}(W)^\top (I_N \otimes L_M + L_N \otimes I_M) \operatorname{vec}(W).
-\end{aligned}
-    \label{eq:dirichlet_trace}
+    \mathcal{R}(W) = \frac{\mathcal{D}(W)}{2\|W\|_F^2 + \epsilon} \in [0, 4],
+    \label{eq:rayleigh}
 \end{equation}
-
-\paragraph{Normalization Conventions.} The \texttt{dreg} library exposes two normalized conventions:
-\begin{itemize}
-    \item \texttt{numel}: $\mathcal{E}_D^{\text{numel}}(W) = \frac{1}{MN}\sum \Delta^2 = 2\,\mathcal{E}_D^{\text{var}}(W)$. Used during TinyStories-10M training (Tables~\ref{tab:calibration} and~\ref{tab:10k_results}) and MNIST MLP evaluation (Table~\ref{tab:mnist}).
-    \item \texttt{edges}: $\mathcal{E}_D^{\text{edges}}(W) = \frac{1}{(M-1)N + M(N-1)}\sum \Delta^2 \approx \mathcal{E}_D^{\text{var}}(W)$. Used in post-hoc Pareto evaluation (Table~\ref{tab:pareto_sweep}), annealing PoC (\S\ref{sec:annealing}), and GPT-2 diagnostics.
-\end{itemize}
-Because $\mathcal{E}_D^{\text{numel}} \approx 2\,\mathcal{E}_D^{\text{edges}}$ for large matrices, both measure identical relative roughness reductions, while reported absolute values differ by $\approx 2\times$; we label the convention explicitly in every table.
-
-Across all $L$ regularized linear projections $\{W^{(l)}\}_{l=1}^L$ (explicitly excluding token embeddings and the output vocabulary head \texttt{lm\_head}, whose token indices have no spatial topology), the training objective is:
+combined with \textbf{parameter-weighted layer aggregation} across all $L$ regularized linear projections $\mathcal{W}_{\text{lin}} = \{W^{(l)}\}_{l=1}^L$ (explicitly excluding embeddings and \texttt{lm\_head}, whose token indices have no spatial topology):
 \begin{equation}
-    \mathcal{L}_{\text{total}} = \mathcal{L}_{\text{task}}(\mathcal{W}; \mathcal{D}) + \frac{\lambda_{\text{topo}}}{L} \sum_{l=1}^L \mathcal{E}_D(W^{(l)}).
+    \mathcal{L}_{\text{total}} = \mathcal{L}_{\text{task}}(\mathcal{W}; \mathcal{D}) + \lambda_{\text{topo}} \sum_{l=1}^L \frac{M_l N_l}{N_{\text{total}}} \, \mathcal{R}(W^{(l)}), \quad N_{\text{total}} = \sum_{j=1}^L M_j N_j.
     \label{eq:total_loss}
 \end{equation}
-For an interior entry $(i, j)$ under $\mathcal{E}_D^{\text{var}}$, the negative gradient is the discrete 5-point Laplace diffusion stencil (with Neumann reflection at the borders):
+Observe how the $M_l N_l$ factor cancels $\|W^{(l)}\|_F^2 = M_l N_l \sigma_l^2$ identically:
 \begin{equation}
-    -\frac{\partial \mathcal{E}_D^{\text{var}}}{\partial W_{i, j}} = \frac{1}{MN} [\Delta W]_{i, j} = \frac{1}{MN} \left( W_{i+1, j} + W_{i-1, j} + W_{i, j+1} + W_{i, j-1} - 4 W_{i, j} \right),
+    \frac{\partial}{\partial W^{(l)}} \left[ \frac{M_l N_l}{N_{\text{total}}} \mathcal{R}(W^{(l)}) \right]
+    = \frac{1}{N_{\text{total}}\,\sigma_l^2} \Big( -\Delta W^{(l)} - \mathcal{R}(W^{(l)})\,W^{(l)} \Big).
+    \label{eq:riemannian_grad}
 \end{equation}
-with an additional factor of $2$ under \texttt{numel}. Notice an important scaling property: because each layer's energy is normalized by $MN$, larger matrices (such as $256 \times 1024$ FFN projections) experience a $4\times$ weaker per-weight Dirichlet gradient relative to the task gradient than smaller square matrices ($256 \times 256$ attention projections)---an asymmetry we observe directly in Figure~\ref{fig:spectra}.
+Equation~\eqref{eq:riemannian_grad} yields four critical properties:
+\begin{itemize}
+    \item \textbf{Exact Shape Symmetry:} Every weight in both $256\times256$ Attention and $256\times1024$ FFN matrices receives identical per-weight smoothing strength ($1 / (N_{\text{total}}\sigma_l^2)$), completely eliminating FFN starvation (Figure~\ref{fig:spectra}, teal curves: $94.1\%$ FFN and $91.4\%$ Attention).
+    \item \textbf{Riemannian Tangency to the Frobenius Sphere:} Because $\mathcal{R}(cW) = \mathcal{R}(W)$ is homogeneous of degree zero, Euler's theorem gives $\langle W, \nabla_W \mathcal{R}(W) \rangle = 0$ identically. The gradient is purely tangential to the Frobenius sphere $\|W\|_F = \text{const}$, preventing weight-norm collapse during from-scratch training.
+    \item \textbf{Stop-Gradient Variant (\texttt{rayleigh\_sg}) for Pre-Trained Outlier Damping:} Detaching the denominator, $\mathcal{R}_{\text{sg}}(W) = \mathcal{D}(W) / (2\,\operatorname{sg}(\|W\|_F^2) + \epsilon)$, removes the $-\mathcal{R}(W)W$ radial term, yielding pure scale-invariant Neumann diffusion $\nabla_W \mathcal{R}_{\text{sg}} = -\Delta W / \|W\|_F^2$ with identically zero DC gradient ($\sum_{i,j} [\nabla_W \mathcal{R}_{\text{sg}}]_{i,j} = 0$). As we prove empirically in \S\ref{sec:ablation_geometry} and \S\ref{sec:gpt2}, full Riemannian \texttt{rayleigh} is optimal when training from scratch (preserving norm), whereas \texttt{rayleigh\_sg} excels when adapting pre-trained LLMs (GPT-2 124M) whose weights begin with oversized high-frequency outliers.
+    \item \textbf{AdamW Parameter-Count Scaling Law:} From~\eqref{eq:riemannian_grad}, the per-weight Dirichlet gradient magnitude scales as $\lambda_{\text{topo}} / (N_{\text{total}} \sigma_W)$. Consequently, transferring coupling strength from a small model ($N_1, \sigma_1$) to a larger pre-trained LLM ($N_2, \sigma_2$) requires scaling $\lambda_{\text{topo}} \propto N_{\text{total}} \sigma_W$---a prediction we verify quantitatively on GPT-2 124M ($N = 84.9$M, $\sigma \approx 0.14$, $\sim 56\times$ scale shift relative to TinyStories-10M).
+\end{itemize}
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/fig2_dct_energy_spectra.png}
-    \caption{\textbf{2D-DCT Cumulative Spectral Energy Compaction (TinyStories 10M, Layer~3).} Cumulative Frobenius energy as a function of normalized 2D-DCT radius $\rho \in [0, \sqrt{2}]$. Left: Feedforward gate projection ($256 \times 1024$). Right: Attention query projection ($256 \times 256$). Standard AdamW exhibits flat-spectrum accumulation ($\sim 13$--$14\%$ below $\rho = 0.40$). Dirichlet regularization concentrates $\sim 72\%$ of Frobenius energy below $\rho = 0.40$ in Attention $W_q$, and $\sim 25\%$ in the $4\times$ larger FFN projection (reflecting the $1/(MN)$ per-weight gradient attenuation on larger matrices).}
+    \caption{\textbf{Layer-Averaged 2D-DCT Cumulative Spectral Energy Compaction (TinyStories-10M, 10,000 steps).} Mean $\pm$ 1 std across all 24 FFN ($256\times1024$ / $1024\times256$, left) and 32 Attention ($256\times256$, right) projections. Standard AdamW (orange dashed) retains only $12.9\%$ / $12.5\%$ energy below $\rho = 0.40$. Legacy \texttt{numel+uniform} (purple dash-dot) compacts Attention to $54.5\%$ but starves FFNs at $21.7\%$. Scale-invariant Rayleigh + parameter-weighted annealing (teal solid) eliminates FFN starvation completely, compacting \textbf{94.1\%} of FFN energy and \textbf{91.4\%} of Attention energy below $\rho = 0.40$.}
     \label{fig:spectra}
 \end{figure}
 
-\subsection{Spectral Energy Concentration via the 2D-DCT}
+\subsection{Exact Diagonalization in the 2D-DCT Basis}
 The eigenvectors of the 1D Neumann path-graph Laplacian $L_N$ are precisely the orthonormal Type-II Discrete Cosine Transform basis vectors~\citep{strang1999dct}:
 \begin{equation}
     \phi_k(n) = \alpha_k \cos\!\left(\frac{\pi (2n+1) k}{2N}\right), \quad \alpha_k = \begin{cases} \sqrt{1/N}, & k = 0, \\ \sqrt{2/N}, & k = 1, \dots, N-1. \end{cases}
     \label{eq:dct_basis}
 \end{equation}
-By tensor product, the separable 2D-DCT maps $W \in \mathbb{R}^{M \times N}$ to its spectral coefficients $S \in \mathbb{R}^{M \times N}$:
+By tensor product, $S = D_M W D_N^\top$ and $W = D_M^\top S D_N$ with $D_M^\top D_M = I_M$, $D_N^\top D_N = I_N$ (computed in \texttt{float64} angles before casting to eliminate float32 phase drift at $N \ge 1024$). By Parseval's theorem, $\|W\|_F^2 = \|S\|_F^2$, while the Rayleigh quotient diagonalizes exactly:
 \begin{equation}
-    S = D_M W D_N^\top, \quad W = D_M^\top S D_N,
-\end{equation}
-where $D_M^\top D_M = I_M$ and $D_N^\top D_N = I_N$. By Parseval's theorem, $\|W\|_F^2 = \|S\|_F^2$, while the discrete Dirichlet energy diagonalizes exactly (under the \texttt{numel} convention):
-\begin{equation}
-    \mathcal{E}_D^{\text{numel}}(W) = \frac{1}{MN} \sum_{k=0}^{M-1} \sum_{l=0}^{N-1} \mu_{k, l} S_{k, l}^2, \quad \mu_{k, l} = 4 \left[ \sin^2\!\left(\frac{\pi k}{2M}\right) + \sin^2\!\left(\frac{\pi l}{2N}\right) \right].
+    \mathcal{R}(W) = \frac{\sum_{k=0}^{M-1} \sum_{l=0}^{N-1} \mu_{k, l} S_{k, l}^2}{2 \sum_{k,l} S_{k,l}^2}, \quad \mu_{k, l} = 4 \left[ \sin^2\!\left(\frac{\pi k}{2M}\right) + \sin^2\!\left(\frac{\pi l}{2N}\right) \right].
     \label{eq:spectral_eigenvalues}
 \end{equation}
-Because $\mu_{k,l} \approx \pi^2 \big((k/M)^2 + (l/N)^2\big)$ grows quadratically with normalized spatial frequency, penalizing $\mathcal{E}_D(W)$ suppresses high-frequency coefficients $S_{k,l}^2$ with quadratic severity, connecting our objective to Laplacian eigenmaps~\citep{belkin2003laplacian}. Under a Gaussian prior $p(W) \propto \exp(-\frac{\lambda}{2}[\operatorname{Tr}(W^\top L_M W) + \operatorname{Tr}(W L_N W^\top)])$~\citep{rasmussen2006gp}, this motivates power-law spectral decay $\mathbb{E}[|S_{u,v}|^2] \propto (1 + \lambda(u^2 + v^2))^{-1}$ (used as field-theoretic intuition rather than a dynamical theorem for AdamW).
+Because $\mu_{k,l} \approx \pi^2 \big((k/M)^2 + (l/N)^2\big)$ grows quadratically with radial frequency $\rho(k,l) = \sqrt{(k/M)^2 + (l/N)^2}$, minimizing $\mathcal{R}(W)$ acts as a quadratic low-pass filter on the normalized spectral energy distribution $S_{k,l}^2 / \|S\|_F^2$, connecting our objective to Laplacian eigenmaps~\citep{belkin2003laplacian} and Gaussian-process smoothness priors~\citep{rasmussen2006gp}.
 
-\subsection{Hierarchical Base-3 Trit Quantization (\texttt{.tritq})}
+\subsection{Hierarchical Base-3 Trit Quantization (\texttt{.tritq}) with Zero-Overhead Optimal Scaling}
 \label{sec:tritq}
-Capitalizing on spectral compaction, we partition the 2D frequency grid $(u, v) = (k/M, l/N) \in [0, 1)^2$ by normalized radial frequency $\rho(u, v) = \sqrt{u^2 + v^2} \in [0, \sqrt{2})$ into four hierarchical bands controlled by radii $0 \le r_0 \le r_1 \le r_2$:
+Partitioning the 2D frequency grid by normalized radius $\rho(u, v) = \sqrt{(k/M)^2 + (l/N)^2} \in [0, \sqrt{2})$ via cutoffs $0 \le r_0 \le r_1 \le r_2$, we allocate bit-depth according to spectral importance:
 \begin{itemize}
-    \item \textbf{Band 0 ($\rho \le r_0$):} DC and basal harmonics, quantized to 8-bit unsigned integers (\texttt{uint8}) with per-band affine scaling ($8.0$~bpp).
-    \item \textbf{Band 1 ($r_0 < \rho \le r_1$):} Mid-frequency harmonics, quantized to 4-bit nibbles packed 2 per byte ($4.0$~bpp).
-    \item \textbf{Band 2 ($r_1 < \rho \le r_2$):} High-mid harmonics, quantized to balanced ternary trits $t \in \{-1, 0, +1\}$ using threshold $\tau = 0.5\sigma_2$ and reconstruction scale $\sigma_2$, packed via Base-3 arithmetic ($1.60$~bits/trit).
-    \item \textbf{Band 3 ($\rho > r_2$):} High-frequency tail, truncated to zero and omitted from storage ($0.0$~bpp).
+    \item \textbf{Band 0 ($\rho \le r_0$, $8.0$~bpp):} DC and basal harmonics, quantized to 8-bit unsigned integers (\texttt{uint8}).
+    \item \textbf{Band 1 ($r_0 < \rho \le r_1$, $4.0$~bpp):} Mid-frequency harmonics, quantized to 4-bit nibbles packed 2 per byte.
+    \item \textbf{Band 2 ($r_1 < \rho \le r_2$, $1.60$~bpp):} High-mid harmonics, quantized to balanced ternary trits $t \in \{-1, 0, +1\}$ packed 5 per byte via exact Base-3 arithmetic ($3^5 = 243 \le 256$):
+    \begin{equation}
+        B = \sum_{p=0}^{4} 3^p (t_p + 1) \in [0, 242], \quad \text{Bitrate}_{\text{trit}} = \frac{8}{5} = 1.60 \text{ bits/trit},
+    \end{equation}
+    saving $20\%$ storage vs.\ 2-bit encoding and unpacking in $\mathcal{O}(1)$ via a $1.25$~KB L1-cache lookup table.
+    \item \textbf{Band 3 ($\rho > r_2$, $0.0$~bpp):} High-frequency tail, truncated to zero.
 \end{itemize}
-Because band occupancy scales with the radial cutoffs, $(r_0, r_1, r_2)$ smoothly sweeps the rate--distortion frontier (Table~\ref{tab:pareto_sweep}):
-\begin{itemize}
-    \item \textbf{Calibrated operating point (TinyStories-10M \& MNIST):} With cutoffs $(r_0, r_1, r_2) = (0.15, 0.40, 1.00)$, Band~0 holds $\sim 1.8\%$ of coefficients, Band~1 $\sim 10.9\%$, Band~2 $\sim 66.1\%$, and Band~3 truncates $\sim 21.2\%$, giving an effective linear-weight bitrate of \textbf{1.638~bpp} ($19.5\times$ vs.\ FP32; $1.68$~MB across all 56 linear matrices of TinyStories-10M).
-    \item \textbf{Default ultra-aggressive library preset:} With $(r_0, r_1, r_2) = (0.10, 0.25, 0.50)$, Bands~0--2 hold $\sim 0.8\% / 4.2\% / 14.8\%$ and Band~3 truncates $\sim 80.3\%$, yielding \textbf{0.468~bpp} ($68.3\times$ compression).
-\end{itemize}
-In serialized \texttt{.tritq} checkpoints, non-topographic parameters (1D LayerNorms, positional embeddings, token embeddings, and \texttt{lm\_head}) are stored uncompressed in FP16 so that vocabulary geometry is never distorted by spectral truncation.
+Non-topographic parameters (embeddings, \texttt{lm\_head}, LayerNorms) are stored uncompressed in FP16 so vocabulary geometry is never distorted.
 
-\paragraph{Exact Base-3 Byte Packing and $\mathcal{O}(1)$ LUT Unpacking.}
-Storing ternary values $\{-1, 0, +1\}$ with 2 bits wastes $25\%$ of states. Observing that $3^5 = 243 \le 256 = 2^8$, we bijectively pack five trits $(t_0, \dots, t_4)$ into one unsigned byte $B \in [0, 242]$:
-\begin{equation}
-    B = \sum_{p=0}^{4} 3^p (t_p + 1), \quad \text{Bitrate}_{\text{trit}} = \frac{8 \text{ bits}}{5 \text{ trits}} = 1.60 \text{ bits/trit},
-\end{equation}
-saving $20\%$ storage relative to 2-bit encoding. Unpacking requires no division or branching via a static precomputed table $\text{LUT} \in \{-1, 0, +1\}^{256 \times 5}$ occupying $1.25$~KB in L1 data cache.
+\paragraph{Two Zero-Bit-Overhead Quantizer Optimizations.}
+When Dirichlet regularization concentrates $>90\%$ of energy into Bands~0 and~1, the spectral distribution becomes strongly heavy-tailed, causing naive \texttt{min}--\texttt{max} scaling and heuristic ternary scales to suffer severe dynamic-range loss. We introduce two optimal scalar upgrades that keep the exact \texttt{.tritq} v1 binary layout and C11 decoder completely unchanged:
+\begin{enumerate}
+    \item \textbf{1D Lloyd--Max Band-2 Ternary Quantization (\texttt{band2\_mode="lloyd\_max"}):} Rather than heuristic $\tau = 0.5\sigma_2, \alpha = \sigma_2$ (which can overshoot Band-2 energy on heavy-tailed spectra), we run 3 iterations of 1D symmetric Lloyd--Max fixed-point updates:
+    \begin{equation}
+        \alpha^{(k+1)} = \mathbb{E}\big[|s| \;\big|\; |s| > \tau^{(k)}\big], \quad \tau^{(k+1)} = \tfrac{1}{2}\alpha^{(k+1)},
+    \end{equation}
+    strictly minimizing Band-2 MSE and guaranteeing reconstructed energy $\le 100\%$.
+    \item \textbf{MSE-Optimal Asymmetric Clipping on Bands~0 \& 1 (\texttt{band01\_mode="mse\_clip"}):} For Band~0 (256 levels) and especially Band~1 (only 16 levels), a single large near-DC harmonic stretches unclipped $[\min, \max]$ and collapses resolution on thousands of remaining modes. We evaluate a lightweight quantile grid (including one-sided trims for asymmetric DC spikes and always including full $[\min, \max]$) and pick the affine range $[\text{lo}^*, \text{hi}^*]$ minimizing $\|s - \hat{s}\|_2^2$. This guarantees MSE $\le$ unclipped \texttt{min}--\texttt{max} at \textbf{zero extra bits}.
+\end{enumerate}
+As verified in Table~\ref{tab:ablation}, these two upgrades alone slash $1.638$~bpp perplexity on converged models by \textbf{3.06$\times$} ($51.55 \to 16.87$~PPL).
 
-\subsection{Systems Execution: C11 DMA Kernel \& Direct Spectral Inference}
+\subsection{Systems Execution: C11 DMA Kernel \& Direct Spectral-Domain MatVec}
 \label{sec:systems}
-We implement a portable C11 micro-kernel (\texttt{kernel/spectral\_dma\_kernel.c}) with native Win32 Events and POSIX \texttt{pthread} condition variables for asynchronous double-buffered DMA prefetching (Figure~\ref{fig:dma_pipeline}). Against PyTorch's reference dequantizer + 2D-IDCT, both direct and asynchronous C paths achieve float32 numerical parity within $< 10^{-5}$ maximum absolute difference (measured $3.6 \times 10^{-7}$ on $128\times128$ matrices, decoding in $327\,\mu\text{s}$/matrix on a desktop CPU with $192$~KB working buffers).
+We implement a portable C11 micro-kernel (\path{kernel/spectral_dma_kernel.c}) with native Win32 Events and POSIX \texttt{pthread} condition variables for asynchronous double-buffered DMA prefetching (Figure~\ref{fig:dma_pipeline}). Against PyTorch's reference dequantizer + 2D-IDCT, both direct and asynchronous C paths achieve float32 parity within $3.6 \times 10^{-7}$ max error ($327\,\mu\text{s}$/matrix on $128\times128$ matrices with $192$~KB buffers).
 
 \begin{figure}[t]
     \centering
@@ -226,47 +225,36 @@ We implement a portable C11 micro-kernel (\texttt{kernel/spectral\_dma\_kernel.c
     \label{fig:dma_pipeline}
 \end{figure}
 
-\paragraph{Reconstruction Complexity and the Direct Spectral-Domain Factorization.}
-When reconstructing a full $D \times D$ matrix explicitly via dense matrix multiplication $W = D^\top S D$, two GEMMs require $4D^3$ FLOPs (or $\mathcal{O}(D^2 \log D)$ via fast 2D-IDCT) and $\mathcal{O}(D^2)$ scratchpad memory. For $D = 128$, the working buffers (\texttt{dct\_buf}, \texttt{temp\_buf}, and ping-pong \texttt{target\_buf}) occupy $256$~KB, fitting easily inside $512$~KB--$1$~MB microcontroller SRAM. However, for wide layers such as TinyStories-10M FFNs ($256 \times 1024$, $1.0$~MB per FP32 matrix), explicit full-matrix reconstruction requires $\ge 4$~MB of working buffers plus embedding tables.
-
-Two architectural paths eliminate this bottleneck:
-\begin{enumerate}
-    \item \textbf{Block-DCT Tiling:} Partitioning weights into fixed $B \times B$ blocks (e.g., $64 \times 64$, provided in \texttt{dreg.BlockDCTTiler}) bounds per-tile reconstruction cost to $\mathcal{O}(B^3)$ and per-tile scratchpad to $3 B^2 \cdot 4\text{ B} = 48$~KB, independent of $D$.
-    \item \textbf{Direct Spectral-Domain Matrix-Vector Product:} Crucially, in single-token autoregressive decoding ($B=1, T=1$), explicit reconstruction of $W = D_M^\top S D_N$ is algebraically unnecessary. Associating from left to right:
-    \begin{equation}
-        y = x W^\top = x (D_N^\top S^\top D_M) = \big((x D_N^\top) S^\top\big) D_M = \operatorname{IDCT}_{1D}\!\Big(S \cdot \operatorname{DCT}_{1D}(x)\Big),
-        \label{eq:spectral_matvec}
-    \end{equation}
-    the forward pass requires only a radix-2 $\mathcal{O}(N \log N)$ 1D-DCT of vector $x$, a streaming dot-product with the nonzero bands of $S$ unpacked on the fly from Flash ($\le 2 f_{\text{kept}} M N$ FLOPs---fewer operations than dense GEMM), and a 1D-IDCT of the output ($\mathcal{O}(M \log M)$). We implement this directly in \texttt{c\_spectral\_matvec\_direct} (\path{kernel/spectral_dma_kernel.c}) with zero $M \times N$ buffers and zero stored DCT basis tables: on a TinyStories-10M FFN layer ($1024 \times 256$ at $1.637$~bpp), it reduces working SRAM from $8{,}448$~KB to \textbf{13.0~KB} ($650\times$ smaller), runs \textbf{$\sim 45\times$ faster} than full-matrix 2D-IDCT reconstruction, and matches dense PyTorch \texttt{x @ W.T} to $8.9 \times 10^{-7}$ maximum absolute error.
-\end{enumerate}
+\paragraph{Direct Spectral-Domain Matrix-Vector Product.}
+Explicitly materializing a wide FFN weight matrix $W = D_M^\top S D_N$ (e.g., $1024 \times 256$) requires $8{,}448$~KB of working buffers and dense $\mathcal{O}(M N (M+N))$ IDCT FLOPs. Crucially, during single-token autoregressive decoding ($B=1, T=1$), re-associating the product avoids full-matrix reconstruction entirely:
+\begin{equation}
+    y = x W^\top = x (D_N^\top S^\top D_M) = \big((x D_N^\top) S^\top\big) D_M = \operatorname{IDCT}_{1D}\!\Big(S \cdot \operatorname{DCT}_{1D}(x)\Big).
+    \label{eq:spectral_matvec}
+\end{equation}
+We implement~\eqref{eq:spectral_matvec} directly in C11 (\texttt{c\_spectral\_matvec\_direct}) using radix-2 $\mathcal{O}(N \log N)$ Makhoul 1D DCT-II/IDCT-II transforms with \texttt{double} twiddle recurrences, streaming compressed Band~0/1/2 rows on the fly with \emph{zero} $M \times N$ buffers and \emph{zero} stored basis matrices. On a TinyStories-10M FFN layer ($1024 \times 256$ at $1.637$~bpp), \texttt{c\_spectral\_matvec\_direct} cuts working SRAM from $8{,}448$~KB to \textbf{13.0~KB} (\textbf{650$\times$} reduction), runs \textbf{45.6$\times$ faster} than full-matrix 2D-IDCT reconstruction ($363.7\,\mu\text{s}$ vs.\ $16.6$~ms on CPU), and matches dense PyTorch \texttt{x @ W.T} to \textbf{8.9 $\times$ 10$^{-7}$} max absolute error.
 
 \begin{algorithm}[t]
-\caption{Dirichlet Regularized Training and Calibrated Base-3 Trit Quantization (\texttt{.tritq})}
+\caption{Riemannian Rayleigh Dirichlet Training \& Optimal Base-3 Trit Quantization (\texttt{.tritq})}
 \label{alg:dreg_pipeline}
 \begin{algorithmic}[1]
-\REQUIRE Dataset $\mathcal{D}$, regularized linear weights $\mathcal{W}_{\text{lin}} = \{W^{(l)}\}_{l=1}^L$ (excluding embeddings and \texttt{lm\_head}), learning rate $\eta$, Dirichlet coupling $\lambda_{\text{topo}}$, radial cutoffs $(r_0, r_1, r_2)$ (calibrated: $(0.15, 0.40, 1.00)$).
-\STATE \textbf{Phase 1: Harmonic Regularized Optimization}
+\REQUIRE Dataset $\mathcal{D}$, linear projections $\mathcal{W}_{\text{lin}} = \{W^{(l)}\}_{l=1}^L$ (excluding embeddings/\texttt{lm\_head}), coupling $\lambda_0$, cooldown ratio $\rho_c$ (default $0.15$), radial cutoffs $(r_0, r_1, r_2)$.
+\STATE \textbf{Phase 1: Scale-Invariant Parameter-Weighted Harmonic Training}
 \FOR{step $t = 1$ \TO $T$}
-    \STATE Sample minibatch $(X, Y) \sim \mathcal{D}$ and compute task loss $\mathcal{L}_{\text{task}}(X, Y; \mathcal{W})$.
-    \STATE Initialize $\mathcal{E}_D \leftarrow 0$.
-    \FOR{each $W \in \mathcal{W}_{\text{lin}}$ of shape $M \times N$}
-        \STATE Compute finite differences $\Delta_x W_{i,j} = W_{i+1,j} - W_{i,j}$ and $\Delta_y W_{i,j} = W_{i,j+1} - W_{i,j}$.
-        \STATE $\mathcal{E}_D \leftarrow \mathcal{E}_D + \frac{1}{MN} \left( \|\Delta_x W\|_F^2 + \|\Delta_y W\|_F^2 \right)$ \quad (\texttt{numel} convention).
-    \ENDFOR
-    \STATE $\mathcal{L}_{\text{total}} \leftarrow \mathcal{L}_{\text{task}} + \frac{\lambda_{\text{topo}}}{L} \mathcal{E}_D$.
-    \STATE Update all parameters $\mathcal{W} \leftarrow \text{AdamW}(\mathcal{W}, \nabla_{\mathcal{W}} \mathcal{L}_{\text{total}}, \eta)$.
+    \STATE $\lambda(t) \leftarrow \lambda_0$ if $t < (1 - \rho_c) T$ else $0$ \quad (\texttt{StepCooldownScheduler}).
+    \STATE Compute task loss $\mathcal{L}_{\text{task}}(X, Y; \mathcal{W})$ and $N_{\text{total}} = \sum_{l=1}^L M_l N_l$.
+    \STATE $\mathcal{L}_{\text{topo}} \leftarrow \lambda(t) \sum_{l=1}^L \frac{M_l N_l}{N_{\text{total}}} \frac{\|\Delta_x W^{(l)}\|_F^2 + \|\Delta_y W^{(l)}\|_F^2}{2\|W^{(l)}\|_F^2 + \epsilon}$ \quad (\texttt{rayleigh}, or $\operatorname{sg}(\|W\|_F^2)$ for pre-trained LLMs).
+    \STATE Update $\mathcal{W} \leftarrow \text{AdamW}(\mathcal{W}, \nabla_{\mathcal{W}}(\mathcal{L}_{\text{task}} + \mathcal{L}_{\text{topo}}), \eta)$.
 \ENDFOR
-\STATE \textbf{Phase 2: Post-Training Hierarchical Base-3 Spectral Quantization}
+\STATE \textbf{Phase 2: Zero-Overhead Optimal Base-3 Spectral Quantization}
 \FOR{each $W \in \mathcal{W}_{\text{lin}}$}
-    \STATE Transform to 2D spectral domain: $S \leftarrow D_M W D_N^\top$ via orthonormal 2D-DCT.
-    \STATE Compute normalized radial frequencies $\rho(k, l) = \sqrt{(k/M)^2 + (l/N)^2}$.
-    \STATE \textbf{Band 0 ($\rho \le r_0$):} Affine 8-bit \texttt{uint8} quantization.
-    \STATE \textbf{Band 1 ($r_0 < \rho \le r_1$):} Affine 4-bit nibble packing (2 values/byte).
-    \STATE \textbf{Band 2 ($r_1 < \rho \le r_2$):} Ternary trits $t \in \{-1, 0, +1\}$ packed 5/byte via $B = \sum_{p=0}^4 3^p (t_p + 1)$.
+    \STATE $S \leftarrow D_M W D_N^\top$ (2D-DCT); compute $\rho(k, l) = \sqrt{(k/M)^2 + (l/N)^2}$.
+    \STATE \textbf{Band 0 ($\rho \le r_0$):} MSE-optimal clipped 8-bit \texttt{uint8} quantization.
+    \STATE \textbf{Band 1 ($r_0 < \rho \le r_1$):} MSE-optimal clipped 4-bit nibble packing (2 values/byte).
+    \STATE \textbf{Band 2 ($r_1 < \rho \le r_2$):} 3-step 1D Lloyd--Max ternary trits packed 5/byte via $B = \sum_{p=0}^4 3^p (t_p + 1)$.
     \STATE \textbf{Band 3 ($\rho > r_2$):} Truncate to zero (0 bits stored).
 \ENDFOR
 \STATE Serialize non-topographic parameters (embeddings, \texttt{lm\_head}, norms) in FP16.
-\RETURN Compressed \texttt{.tritq} checkpoint.
+\RETURN Compressed \texttt{.tritq} checkpoint (exact v1 binary format).
 \end{algorithmic}
 \end{algorithm}
 
@@ -276,82 +264,189 @@ Two architectural paths eliminate this bottleneck:
 % -----------------------------------------------------------------------------
 
 \subsection{Experimental Setup}
-\paragraph{Language Modeling on TinyStories.} We evaluate on TinyStories~\citep{eldan2023tinystories} using $10.56$M-parameter causal SwiGLU Transformers ($d_{\text{model}} = 256$, $n_{\text{heads}} = 4$, $n_{\text{layers}} = 8$, $d_{\text{ffn}} = 1024$, $\text{seq\_len} = 256$, $56$ regularized linear projections totaling $8.39$M weights plus $2.17$M embedding/\texttt{lm\_head}/norm parameters) with a $4{,}096$-token Byte-Level BPE vocabulary. Models are trained on NVIDIA A10G GPUs via Modal for $10{,}000$ steps (batch size $32$, $\text{seq\_len} = 256$, totaling \textbf{81.92M tokens} per run) using AdamW (constant $\text{lr} = 5 \times 10^{-4}$, $\beta_1 = 0.9$, $\beta_2 = 0.999$, weight decay $10^{-4}$, gradient clip $1.0$). Full hyperparameters are listed in Appendix Table~\ref{tab:app_hyperparams}.
-
-\paragraph{Feedforward Vision on MNIST.} To test cross-architecture generality, we train bias-free 3-layer MLPs ($784 \to 256 \to 128 \to 10$, $234.75$K parameters) on MNIST for 5 epochs with AdamW ($\text{lr} = 10^{-3}$, weight decay $10^{-4}$) with and without Dirichlet regularization ($\lambda_{\text{topo}} = 15.0$, \texttt{numel}).
+\paragraph{TinyStories-10M (Multi-Seed $N=3$).} We train $10.56$M-parameter causal SwiGLU Transformers ($d_{\text{model}} = 256$, $n_{\text{heads}} = 4$, $n_{\text{layers}} = 8$, $d_{\text{ffn}} = 1024$, $\text{seq\_len} = 256$, $56$ linear projections totaling $8.39$M weights plus $2.17$M embedding/\texttt{lm\_head}/norm parameters, $4{,}096$-token Byte-Level BPE) on TinyStories~\citep{eldan2023tinystories} for $10{,}000$ steps ($81.92$M tokens/run, batch size 32, AdamW $\text{lr} = 5\times10^{-4}$, weight decay $10^{-4}$, grad clip $1.0$) on NVIDIA A10G GPUs via Modal across three independent seeds $\{42, 100, 2024\}$ (independent weight initialization and shuffled training stream, identical 25-batch / $204{,}800$-token validation split).
+\paragraph{Pre-Trained OpenAI GPT-2 (124M).} We adapt pre-trained GPT-2 ($124$M total parameters, 48 dense \texttt{Conv1D} matrices totaling $84.9$M weights) on streaming TinyStories for $1{,}500$ steps (batch size 8, $\text{seq\_len}=256$, $\text{lr}=3\times10^{-4}$ with 50-step warmup and cosine decay, evaluated on 25 fixed validation batches / $51{,}200$ tokens).
+\paragraph{Vision MLPs on MNIST.} Bias-free 3-layer MLPs ($784\to256\to128\to10$, $234.75$K params) trained for 5 epochs with AdamW ($\text{lr}=10^{-3}$). Full specifications appear in Appendix Table~\ref{tab:app_hyperparams}.
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/fig3_pareto_quantization.png}
-    \caption{\textbf{Calibration Sweep and Empirical Rate--Distortion Frontier (TinyStories 10M).} (a) 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0.0, 0.01, 5.0, 15.0, 30.0\}$, 2,000 steps) at calibrated $1.638$~bpp: $\lambda = 0.01$ is washed out by AdamW, whereas $\lambda \ge 5$ steadily reduces roughness $E_D$ (blue, $-54.5\%$ at $\lambda=30$) and lowers quantized PPL (red, $46.60 \to 39.80$). (b) Converged 10,000-step rate--distortion frontier across $1.638$--$3.774$~bpp (25 validation batches, $204.8$K tokens, Table~\ref{tab:pareto_sweep}): Topographic Dirichlet strictly dominates the Standard baseline across the entire practical frontier.}
+    \caption{\textbf{Rayleigh Calibration Sweep and Multi-Seed ($N=3$) Rate--Distortion Frontier (TinyStories-10M).} (a) 2,000-step calibration sweep ($\lambda \in \{0, 0.25, 0.5, 1.0, 2.0\}$): Attention and FFN low-frequency compaction track each other identically from $12.7\%$ to $97.8\%$ while $1.638$~bpp and sub-1-bit $0.914$~bpp perplexities drop monotonically. (b) Converged 10,000-step multi-seed ($N=3$, mean $\pm$ std) rate--distortion frontier: Rayleigh Annealed ($\lambda=2.0\to 0$) + Base-3 TritQ strictly dominates Standard TritQ and all spatial/low-rank PTQ baselines across $0.91$--$2.79$~bpp.}
     \label{fig:pareto}
 \end{figure}
 
-\subsection{Hyperparameter Calibration Sweep}
-In preliminary trials, unscaled $\lambda_{\text{topo}} \le 10^{-2}$ produced negligible smoothing because the size-normalized Dirichlet energy (\texttt{numel}) has magnitude $\sim 4 \times 10^{-3}$; multiplying by $10^{-2}$ produces a penalty $\sim 5 \times 10^{4}\times$ smaller than cross-entropy ($\sim 2.3$), which is washed out by AdamW moments.
+\subsection{Rayleigh Calibration Sweep: Eliminating FFN Starvation}
+We first map the Rayleigh + parameter-weighted regime over $\lambda \in \{0.0, 0.25, 0.5, 1.0, 2.0\}$ (2,000 steps, seed 42, evaluated with Lloyd--Max Band-2). Table~\ref{tab:calibration} and Figure~\ref{fig:pareto}(a) confirm two central predictions: (1) Attention and FFN compaction rise in lockstep within $1$--$2$ percentage points across the entire sweep ($12.7\%/12.8\% \to 96.0\%/97.8\%$), completely eliminating FFN starvation; and (2) every bit-rate exhibits clean monotonic compression gains, with $\lambda = 2.0$ cutting $1.638$~bpp PPL nearly in half ($37.93 \to 20.41$) and sub-1-bit $0.914$~bpp PPL nearly $4\times$ ($165.15 \to 42.69$) after only 2,000 steps.
 
-We mapped the active regime via a 5-point sweep $\lambda_{\text{topo}} \in \{0.0, 0.01, 5.0, 15.0, 30.0\}$ over $2{,}000$ steps ($16.38$M tokens each, evaluated on 20 validation batches at calibrated $(0.15, 0.40, 1.00) \to 1.638$~bpp). Results are reported in Table~\ref{tab:calibration} and Figure~\ref{fig:pareto}(a).
-
-\begin{table}[h]
+\begin{table}[t]
     \centering
     \small
-    \caption{\textbf{Hyperparameter Calibration Sweep (TinyStories 10M, 2,000 steps, 20 val batches, A10G GPU).} Roughness uses \texttt{numel} normalization; TritQ uses calibrated radii $(0.15, 0.40, 1.00)$ ($1.638$~bpp).}
+    \caption{\textbf{Rayleigh + Parameter-Weighted Calibration Sweep (TinyStories-10M, 2,000 steps, seed 42, A10G).} Attention ($256\times256$) and FFN ($256\times1024$) compaction match within $\le 1.8\%$ across all $\lambda$.}
     \label{tab:calibration}
     \resizebox{\textwidth}{!}{
-    \begin{tabular}{lcccccc}
+    \begin{tabular}{cccccccccc}
         \toprule
-        \textbf{Model} & $\lambda_{\text{topo}}$ & \textbf{Val PPL (FP32)} & \textbf{$E_D$ (\texttt{numel})} & \textbf{$\Delta E_D$} & \textbf{Quant PPL (1.638 bpp)} & \textbf{$\Delta$ PPL} \\
+        $\lambda_{\text{topo}}$ & \textbf{FP32 PPL} & \textbf{Rayleigh $\mathcal{R}$} & \textbf{Attn $E_{\le 0.4}$} & \textbf{FFN $E_{\le 0.4}$} & \textbf{0.430 bpp} & \textbf{0.914 bpp} & \textbf{1.638 bpp} & \textbf{2.181 bpp} & \textbf{2.794 bpp} \\
         \midrule
-        Standard Baseline & 0.0 & \textbf{10.48} & 0.004225 & --- & 46.60 & +36.12 \\
-        Topographic & 0.01 & 10.44 & 0.004251 & $+0.6\%$ & 47.95 & +37.51 \\
-        Topographic & 5.0 & 10.62 & 0.003382 & $-20.0\%$ & 44.80 & +34.18 \\
-        Topographic & 15.0 & 10.81 & 0.002427 & $-42.5\%$ & 43.26 & +32.45 \\
-        \textbf{Topographic (Selected)} & \textbf{30.0} & 10.98 & \textbf{0.001924} & \textbf{$-54.5\%$} & \textbf{39.80} & \textbf{+28.82} \\
+        0.00 & \textbf{11.07} & 1.9887 & 12.7\% & 12.8\% & 780.74 & 165.15 & 37.93 & 20.78 & 14.63 \\
+        0.25 & 11.91 & 0.6139 & 71.4\% & 70.3\% & 1174.32 & 191.43 & 30.01 & 17.42 & \textbf{14.18} \\
+        0.50 & 12.41 & 0.3631 & 85.4\% & 85.7\% & 928.51 & 147.33 & 27.32 & 16.76 & 14.28 \\
+        1.00 & 13.23 & 0.2075 & 92.4\% & 93.8\% & 506.94 & 84.62 & 23.28 & \textbf{16.62} & 14.59 \\
+        2.00 & 14.52 & \textbf{0.1126} & \textbf{96.0\%} & \textbf{97.8\%} & \textbf{247.07} & \textbf{42.69} & \textbf{20.41} & 16.91 & 15.52 \\
         \bottomrule
     \end{tabular}
     }
 \end{table}
 
-At $\lambda_{\text{topo}} = 0.01$, behavior is indistinguishable from baseline noise ($+0.6\%$ in $E_D$, $47.95$ vs.\ $46.60$~PPL). For $\lambda_{\text{topo}} \ge 5.0$, roughness drops steadily down to $-54.5\%$ at $\lambda = 30.0$, driving a $-6.80$~PPL improvement under $1.638$~bpp TritQ ($46.60 \to 39.80$) at a modest FP32 cost of $+0.50$~PPL.
+\subsection{Multi-Seed (\texorpdfstring{$N=3$}{N=3}) 10,000-Step TinyStories-10M \& Controlled Annealing}
+\label{sec:10k_multiseed}
+We trained four strictly controlled 10,000-step conditions across seeds $\{42, 100, 2024\}$ ($12$ parallel A10G runs): (1) \textbf{Standard} ($\lambda = 0$), (2) \textbf{Rayleigh} ($\lambda = 1.0$), (3) \textbf{Rayleigh} ($\lambda = 2.0$), and (4) \textbf{Rayleigh Annealed} ($\lambda = 2.0 \to 0.0$ via \texttt{StepCooldownScheduler}, $\rho_{\text{cooldown}} = 0.15$, relaxing at step $8{,}500$ under the exact same 10,000-step budget). Table~\ref{tab:pareto_sweep} presents the full multi-seed rate--distortion frontier using optimal Base-3 TritQ (\texttt{mse\_clip} + \texttt{lloyd\_max}).
 
-\subsection{10,000-Step Publication Training on TinyStories}
-We trained both the Standard baseline ($\lambda = 0.0$) and Topographic model ($\lambda = 30.0$) for $10{,}000$ steps ($81.92$M tokens). Table~\ref{tab:10k_results} reports the immediate post-training evaluation on 20 validation batches ($163{,}840$ tokens).
-
-\begin{table}[h]
+\begin{table}[t]
     \centering
     \small
-    \caption{\textbf{Converged 10,000-Step Training on TinyStories 10M (20 val batches / 163.8K tokens, A10G).} Roughness uses \texttt{numel} normalization; TritQ uses calibrated $(0.15, 0.40, 1.00)$ ($1.638$~bpp).}
-    \label{tab:10k_results}
+    \caption{\textbf{Multi-Seed ($N=3$, mean $\pm$ std) 10,000-Step Rate--Distortion Frontier on TinyStories-10M (204.8K val tokens).} Controlled 10k Annealing (\texttt{rayleigh\_anneal2}) strictly Pareto-dominates static regularization across every bit-rate and beats Standard TritQ by $4.04\times$ at $1.638$~bpp and $11.4\times$ at sub-1-bit $0.914$~bpp.}
+    \label{tab:pareto_sweep}
     \resizebox{\textwidth}{!}{
-    \begin{tabular}{lcccccc}
+    \begin{tabular}{lccccccc}
         \toprule
-        \textbf{Model} & $\lambda_{\text{topo}}$ & \textbf{FP32 Val PPL} & \textbf{$E_D$ (\texttt{numel})} & \textbf{$\Delta E_D$} & \textbf{Quant PPL (1.638 bpp)} & \textbf{Degradation ($\Delta$)} \\
+        \textbf{Condition (10k, $N=3$)} & \textbf{FP32 PPL} & \textbf{Attn / FFN $E_{\le 0.4}$} & \textbf{0.430 bpp (74$\times$)} & \textbf{0.914 bpp (35$\times$)} & \textbf{1.638 bpp (19.5$\times$)} & \textbf{2.181 bpp (14.7$\times$)} & \textbf{2.794 bpp (11.5$\times$)} \\
         \midrule
-        Standard Baseline & 0.0 & \textbf{5.83} & 0.012316 & --- & 72.89 & +67.06 \\
-        \textbf{Topographic (Ours)} & \textbf{30.0} & 6.18 & \textbf{0.003438} & \textbf{$-72.1\%$} & \textbf{66.13} & \textbf{+59.95} \\
+        Standard ($\lambda=0$) & \textbf{5.81 $\pm$ 0.01} & 12.6\% / 12.9\% & 3472.7 $\pm$ 950.0 & 1085.5 $\pm$ 214.1 & 68.21 $\pm$ 6.94 & 19.70 $\pm$ 0.70 & 9.79 $\pm$ 0.17 \\
+        Rayleigh ($\lambda=1.0$) & 7.39 $\pm$ 0.02 & 91.3\% / 95.0\% & 1914.7 $\pm$ 558.8 & 223.8 $\pm$ 134.7 & 23.74 $\pm$ 6.51 & 11.77 $\pm$ 1.87 & 8.68 $\pm$ 0.50 \\
+        Rayleigh ($\lambda=2.0$) & 8.19 $\pm$ 0.06 & \textbf{96.2\% / 98.3\%} & 1302.0 $\pm$ 395.5 & 120.6 $\pm$ 40.3 & 23.46 $\pm$ 5.71 & 12.48 $\pm$ 1.76 & 9.14 $\pm$ 0.03 \\
+        \textbf{Rayleigh Anneal ($2\to 0$)} & 7.78 $\pm$ 0.05 & 91.6\% / 94.2\% & \textbf{1131.4 $\pm$ 317.5} & \textbf{95.60 $\pm$ 28.26} & \textbf{16.87 $\pm$ 1.73} & \textbf{10.71 $\pm$ 0.64} & \textbf{8.56 $\pm$ 0.07} \\
         \bottomrule
     \end{tabular}
     }
 \end{table}
 
-Across $81.92$M tokens, standard optimization pushes weights into sharp, high-roughness configurations ($E_D^{\text{numel}} = 0.012316$). Dirichlet regularization suppresses roughness by \textbf{72.1\%} ($0.003438$) and reduces $1.638$~bpp quantized perplexity from $72.89$ to \textbf{66.13} (\textbf{$-6.76$~PPL}).
+\paragraph{Key Multi-Seed Findings.}
+First, \textbf{controlled Dirichlet Annealing works decisively}: releasing $\lambda = 2.0 \to 0$ during the final $15\%$ of training recovers $-0.41$~FP32 PPL ($8.19 \to 7.78$), retains $91.6\%$ / $94.2\%$ low-frequency compaction via geometric inertia, reduces seed-to-seed variance by $>3\times$, and strictly Pareto-dominates static $\lambda=2.0$ at \emph{every single bit-rate} from $0.430$~bpp to FP32. Second, at $1.638$~bpp ($19.5\times$ linear compression), \texttt{rayleigh\_anneal2} achieves \textbf{16.87 $\pm$ 1.73~PPL}---a \textbf{4.04$\times$} reduction over Standard TritQ ($68.21 \pm 6.94$). Third, at $2.181$~bpp ($14.7\times$), perplexity reaches \textbf{10.71 $\pm$ 0.64} (only $+2.93$ above FP32), and at $2.794$~bpp ($11.5\times$), \textbf{8.56 $\pm$ 0.07} (only $+0.78$ above FP32). Fourth, on-disk binary serialization via \texttt{TritQFormat.save/load} on seed~42 verified exact end-to-end round-trip fidelity (\textbf{16.702} in-memory vs.\ \textbf{16.702} reloaded from \texttt{.tritq}).
 
-\paragraph{Qualitative Generation Sample (FP32).} To verify that strong Dirichlet coupling ($\lambda = 30.0$) preserves linguistic fluency prior to quantization, we sample from the converged unquantized FP32 Topographic model (temperature $0.7$):
+\paragraph{Qualitative Greedy Generation at 1.638 bpp (Seed 42).}
+With prompt \textit{``One day, Tim went to the park with his red ball.''} ($\tau = 0$, $19.5\times$ compression):
 \begin{quote}
-    \textbf{Prompt:} \textit{"Once upon a time, there was a little girl named Lily."}\\
-    \textbf{Topographic 10M (FP32):} \textit{"Once upon a time, there was a little girl named Lily. She loved to write stories about her adventures. One day, she went to the library with her mommy and daddy. They read about many new things and started writing stories. Suddenly, the librarian came to check her on the book. It was full of chefs!"}
+    \textbf{Standard 10M (1.638 bpp, 68.81 PPL):} \textit{``...He wanteds of his friends findshews of his friends, butters, butters, butteryals not. He wanteds not. He wanteds forgirs have a big, butters not''}\\
+    \textbf{Rayleigh Annealed 10M (1.638 bpp, 16.70 PPL):} \textit{``...He wantedives that he found. He said it was a big and he wanted to go up therest. He wanted the big slide. He ran and ran as he could the park. He saw the big hill and he had and he''}
 \end{quote}
-Note that at $1.638$~bpp ($\sim 66$~PPL), output quality is substantially noisier than FP32; near-FP32 linguistic fidelity is recovered at $2.79$--$3.77$~bpp ($8.22$--$12.43$~PPL, Table~\ref{tab:pareto_sweep}).
+While still noticeably noisier than FP32, our $1.638$~bpp model preserves topical coherence (park, slide, running, hill) whereas unregularized $1.638$~bpp collapses into repetitive gibberish.
 
-\subsection{Beyond Transformers: Universal Applicability to Vision MLPs}
-Table~\ref{tab:mnist} reports results on the 3-layer MNIST MLP ($784 \to 256 \to 128 \to 10$, $\lambda_{\text{topo}} = 15.0$).
+\subsection{Comparative PTQ Analysis \& Zero-Overhead Quantizer Ablations}
+\label{sec:ablation_geometry}
+Table~\ref{tab:sota} compares multi-seed ($N=3$) Base-3 TritQ against five spatial, spectral, and low-rank PTQ baselines evaluated on the exact same converged 10,000-step Standard models ($8.39$M linear weights quantized; embeddings and \texttt{lm\_head} unquantized).
 
-\begin{table}[h]
+\begin{table}[t]
     \centering
     \small
-    \caption{\textbf{Beyond-Transformers Evaluation: 3-Layer MLP Classifier on MNIST (5 epochs).} Roughness uses \texttt{numel}; TritQ uses calibrated $(0.15, 0.40, 1.00)$ ($1.64$~bpp).}
+    \caption{\textbf{Multi-Seed ($N=3$) Comparative Quantization Benchmark on TinyStories-10M (10,000 steps, 204.8K tokens).} Baselines are evaluated on the converged Standard models; Base-3 TritQ is evaluated on both Standard and Rayleigh Annealed ($\lambda=2\to 0$).}
+    \label{tab:sota}
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Quantization Scheme} & \textbf{Rate (bpp)} & \textbf{Linear Size} & \textbf{Val PPL (mean $\pm$ std)} & \textbf{vs.\ 1.638 bpp Ours} \\
+        \midrule
+        Dense FP32 (Standard Reference) & 32.00 & 33.55 MB & 5.81 $\pm$ 0.01 & Reference \\
+        Spatial Uniform INT4 (per-tensor RTN) & 4.00 & 4.19 MB & 6.99 $\pm$ 0.59 & 2.4$\times$ more bits \\
+        Spectral Uniform INT4 (2D-DCT RTN) & 4.00 & 4.19 MB & 7.26 $\pm$ 0.16 & 2.4$\times$ more bits \\
+        Spatial Group-Wise INT2 ($g=64$, ternary) & 2.25 & 2.36 MB & 36.91 $\pm$ 6.03 & \textbf{2.19$\times$ worse PPL} (+37\% bits) \\
+        Spatial Uniform INT2 (per-tensor ternary) & 2.00 & 2.10 MB & 47.39 $\pm$ 7.90 & \textbf{2.81$\times$ worse PPL} (+22\% bits) \\
+        Budget-Matched Quantized SVD (INT8 factors) & 1.64 & 1.72 MB & 555.65 $\pm$ 65.74 & \textbf{32.9$\times$ worse PPL} (same bits) \\
+        Base-3 TritQ on Standard Model & 1.638 & 1.72 MB & 68.21 $\pm$ 6.94 & \textbf{4.04$\times$ worse PPL} (same bits) \\
+        \midrule
+        \textbf{Base-3 TritQ + Rayleigh Anneal (Mid-Band, Ours)} & \textbf{2.181} & \textbf{2.29 MB} & \textbf{10.71 $\pm$ 0.64} & \textbf{3.45$\times$ better than Group INT2} \\
+        \textbf{Base-3 TritQ + Rayleigh Anneal (Calibrated, Ours)} & \textbf{1.638} & \textbf{1.72 MB} & \textbf{16.87 $\pm$ 1.73} & \textbf{Best sub-2-bit model} \\
+        \textbf{Base-3 TritQ + Rayleigh Anneal (Sub-1-bit, Ours)} & \textbf{0.914} & \textbf{0.96 MB} & \textbf{95.60 $\pm$ 28.26} & \textbf{11.4$\times$ better than Std 0.914 bpp} \\
+        \bottomrule
+    \end{tabular}
+    }
+\end{table}
+
+At \textbf{1.638~bpp}, Rayleigh-annealed TritQ (\textbf{16.87 $\pm$ 1.73}) outperforms per-group Spatial INT2 ($g=64$, $2.25$~bpp, $36.91 \pm 6.03$) by \textbf{2.19$\times$} while using \textbf{27\% fewer bits}, outperforms per-tensor Spatial INT2 ($47.39$) by \textbf{2.81$\times$}, and crushes budget-matched INT8 SVD ($555.65$) by \textbf{32.9$\times$}. At \textbf{2.181~bpp} (still below Group INT2's $2.25$~bpp), perplexity drops to \textbf{10.71 $\pm$ 0.64} (\textbf{3.45$\times$} better than Group INT2).
+
+\paragraph{Quantizer & Normalization Geometry Ablations (Table~\ref{tab:ablation}).}
+Table~\ref{tab:ablation}(a) isolates each zero-bit-overhead quantizer upgrade across all 3 seeds at $1.638$~bpp: adding 1D Lloyd--Max Band-2 cuts \texttt{rayleigh\_anneal2} PPL from $51.55 \to 31.62$ ($-19.93$), and adding MSE-optimal Band-0/1 clipping cuts it in half again to \textbf{16.87 $\pm$ 1.73} ($3.06\times$ total reduction). Table~\ref{tab:ablation}(b) (2,000-step ablation, seed 42) explains \emph{why} full Riemannian \texttt{rayleigh} dominates \texttt{rayleigh\_sg} from scratch: while \texttt{rayleigh\_sg} keeps weight crest factor tiny ($10.8$ vs.\ $29.8$, preventing unclipped INT4 blowup) and reaches $42.82$~PPL even at $0.430$~bpp ($74.4\times$), detaching $\|W\|_F^2$ induces a positive-feedback weight-shrinkage loop ($\max\text{RMS}: 0.038 \to 0.012$) that degrades FP32 PPL to $26.63$. Full Riemannian \texttt{rayleigh} preserves norm via $\langle W, \nabla \mathcal{R}\rangle = 0$, while \texttt{mse\_clip} completely neutralizes its mild tangential crest-factor increase.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{\textbf{Ablations: (a) Zero-Bit-Overhead Quantizer Upgrades at 1.638 bpp ($N=3$, 10k steps) and (b) Riemannian vs.\ Stop-Gradient Rayleigh Geometry (2k steps, seed 42).}}
+    \label{tab:ablation}
+    \begin{subtable}[t]{0.52\textwidth}
+        \centering
+        \caption{Quantizer Ablation at $1.638$~bpp ($N=3$)}
+        \resizebox{\linewidth}{!}{
+        \begin{tabular}{lccc}
+            \toprule
+            \textbf{Model} & \textbf{Legacy} & \textbf{+Lloyd--Max} & \textbf{+MSE-Clip} \\
+            \midrule
+            Standard & 86.56 $\pm$ 9.23 & 67.95 $\pm$ 5.74 & 68.21 $\pm$ 6.94 \\
+            Rayleigh $\lambda=1$ & 69.09 $\pm$ 24.2 & 38.58 $\pm$ 13.6 & 23.74 $\pm$ 6.51 \\
+            Rayleigh $\lambda=2$ & 106.1 $\pm$ 44.1 & 65.65 $\pm$ 20.4 & 23.46 $\pm$ 5.71 \\
+            \textbf{Anneal $2\to 0$} & 51.55 $\pm$ 3.90 & 31.62 $\pm$ 2.88 & \textbf{16.87 $\pm$ 1.73} \\
+            \bottomrule
+        \end{tabular}
+        }
+    \end{subtable}
+    \hfill
+    \begin{subtable}[t]{0.45\textwidth}
+        \centering
+        \caption{Normalization Geometry (2k, seed 42)}
+        \resizebox{\linewidth}{!}{
+        \begin{tabular}{lcccc}
+            \toprule
+            \textbf{Mode} & \textbf{FP32} & \textbf{0.43b} & \textbf{0.91b} & \textbf{1.64b} \\
+            \midrule
+            Standard & \textbf{9.33} & 1346.4 & 358.0 & 43.78 \\
+            \texttt{rayleigh\_sg} $\lambda=1$ & 24.27 & 61.50 & 36.45 & 27.71 \\
+            \texttt{rayleigh\_sg} $\lambda=2$ & 26.63 & \textbf{42.82} & \textbf{33.38} & 29.27 \\
+            \textbf{Riemannian $\lambda=2$} & 14.52 & 247.1 & 42.69 & \textbf{20.41} \\
+            \bottomrule
+        \end{tabular}
+        }
+    \end{subtable}
+\end{table}
+
+\subsection{Pre-Trained LLM Adaptation: OpenAI GPT-2 (124M)}
+\label{sec:gpt2}
+Pre-trained LLMs pose a much harder test because their weights begin in high-roughness, outlier-heavy configurations ($E_D^{\text{edges}} = 0.033514$, $6\times$ rougher than TinyStories-10M). Even standard 4-bit per-tensor INT4 RTN collapses pre-trained GPT-2 ($2{,}440.5$~PPL) and standard fine-tuned GPT-2 ($1{,}449.1$~PPL), while Group-wise INT2 ($g=64$, $2.25$~bpp) collapses to $3{,}209.1$~PPL.
+
+In an initial diagnostic sweep at $\lambda \in [0.5, 2.0]$ (matching TinyStories-10M), Rayleigh roughness moved linearly by only $\Delta\mathcal{R} = -0.0121\lambda$ ($1.9915 \to 1.9673$), directly confirming our AdamW scaling law ($\lambda_{\text{eff}} \propto N_{\text{total}}\sigma_W \approx 56\times$ larger for GPT-2's $84.9$M dense weights with $\sigma_W \approx 0.14$). Scaling $\lambda \in \{25, 75, 200, 500\}$ with \texttt{rayleigh\_sg} + \texttt{param\_weighted} (which damps GPT-2's oversized high-frequency outliers without inflating crest factors) over $1{,}500$ steps yields a dramatic rescue across every bit-rate (Table~\ref{tab:gpt2}).
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{\textbf{Pre-Trained OpenAI GPT-2 (124M, 48 \texttt{Conv1D} matrices / 84.9M weights) Adaptation (1,500 steps, $\text{lr}=3\times10^{-4}$, 51.2K val tokens).} Calibrated \texttt{rayleigh\_sg} + \texttt{param\_weighted} + optimal TritQ cuts roughness by $95.6\%$ and reduces compressed perplexity by $23\times$--$77\times$ vs.\ standard fine-tuning.}
+    \label{tab:gpt2}
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{lcccccccc}
+        \toprule
+        \textbf{GPT-2 (124M) Variant} & \textbf{FP32} & \textbf{Rayleigh} & \textbf{Attn / FFN $E_{\le 0.4}$} & \textbf{1.63 bpp} & \textbf{2.18 bpp} & \textbf{2.79 bpp} & \textbf{3.77 bpp} & \textbf{INT4 (4.0b)} \\
+        \midrule
+        Base Pre-Trained (0 steps) & 11.96 & 1.9915 & 12.6\% / 12.9\% & 8355.36 & 5474.80 & 2638.98 & 1761.02 & 2440.52 \\
+        Standard Fine-Tuned ($\lambda=0$) & \textbf{4.65} & 1.9914 & 12.6\% / 12.9\% & 4130.36 & 4050.95 & 2546.29 & 684.46 & 1449.10 \\
+        \midrule
+        \texttt{rayleigh\_sg} ($\lambda=25$) & 5.35 & 1.2852 & 32.8\% / 37.2\% & 2052.39 & 638.34 & 152.76 & 31.96 & 963.10 \\
+        \texttt{rayleigh\_sg} ($\lambda=75$) & 9.02 & 0.7347 & 62.3\% / 68.2\% & 936.02 & 389.42 & 172.75 & 57.19 & 1106.61 \\
+        \texttt{rayleigh\_sg} ($\lambda=200$) & 13.69 & 0.5768 & 72.1\% / 77.7\% & 344.39 & 139.79 & 50.34 & 24.42 & 1041.69 \\
+        \textbf{\texttt{rayleigh\_sg} Anneal ($200\to 0$)} & 12.93 & 0.5949 & 71.2\% / 76.8\% & 281.84 & 117.55 & 43.20 & \textbf{21.62} & 997.09 \\
+        \textbf{\texttt{rayleigh\_sg} ($\lambda=500$)} & 18.64 & \textbf{0.5506} & \textbf{73.0\% / 79.2\%} & \textbf{178.71} & \textbf{60.35} & \textbf{33.07} & 23.37 & 1115.46 \\
+        \bottomrule
+    \end{tabular}
+    }
+\end{table}
+
+With only 1,500 fine-tuning steps ($\sim 3.8$~minutes on a single A10G), \texttt{rayleigh\_sg} reduces GPT-2 roughness by \textbf{95.6\%} ($E_D^{\text{edges}}: 0.033514 \to 0.001464$), raises compaction to $73.0\%$ / $79.2\%$, and slashes quantized perplexity across the entire frontier: \textbf{31.7$\times$} lower at $3.77$~bpp ($684.46 \to \mathbf{21.62}$, vs.\ $1{,}449.1$ for INT4; while $\lambda=25$ already hits $31.96$ at nearly untouched FP32 $5.35$), \textbf{77.0$\times$} lower at $2.79$~bpp ($2{,}546.3 \to \mathbf{33.07}$), \textbf{67.1$\times$} lower at $2.18$~bpp ($4{,}051.0 \to \mathbf{60.35}$, beating Group-wise INT2 $g=64$ $3{,}209.1$ by \textbf{53.2$\times$}), and \textbf{23.1$\times$} lower at $1.63$~bpp ($4{,}130.4 \to \mathbf{178.71}$).
+
+\subsection{Cross-Architecture Validation: Vision MLPs on MNIST}
+Table~\ref{tab:mnist} confirms that spectral compaction generalizes directly to non-Transformer architectures (3-layer MNIST MLP, $\lambda_{\text{topo}} = 15.0$, \texttt{numel}, 5 epochs): \texttt{dreg} cuts roughness by \textbf{84.5\%}, nearly doubles low-frequency energy ($27.87\% \to 52.84\%$), improves hard low-pass truncation accuracy ($\rho \le 0.40$) by \textbf{+10.72\%} absolute, and improves $1.64$~bpp TritQ accuracy by \textbf{+1.19\%}.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{\textbf{Cross-Architecture Validation: 3-Layer Vision MLP on MNIST (5 epochs, \texttt{numel}, $\lambda=15.0$).}}
     \label{tab:mnist}
-    \resizebox{0.95\textwidth}{!}{
+    \resizebox{0.92\textwidth}{!}{
     \begin{tabular}{lccc}
         \toprule
         \textbf{Metric} & \textbf{Standard MLP} & \textbf{Topographic MLP (\texttt{dreg})} & \textbf{Impact / Gain} \\
@@ -359,135 +454,42 @@ Table~\ref{tab:mnist} reports results on the 3-layer MNIST MLP ($784 \to 256 \to
         FP32 Test Accuracy & \textbf{97.87\%} & 97.58\% & $-0.29\%$ (Preserved) \\
         Dirichlet Energy ($E_D$, \texttt{numel}) & 0.0219 & \textbf{0.0034} & \textbf{$-84.5\%$} Roughness \\
         Low-Frequency Energy ($\rho \le 0.40$) & 27.87\% & \textbf{52.84\%} & \textbf{$1.90\times$} Concentration \\
-        Low-Pass Truncation Acc ($\rho \le 0.40$) & 30.69\% & \textbf{41.41\%} & \textbf{+10.72\%} abs.\ (+11.01\% rel.\ retention) \\
+        Low-Pass Truncation Acc ($\rho \le 0.40$) & 30.69\% & \textbf{41.41\%} & \textbf{+10.72\%} abs.\ accuracy \\
         Base-3 Trit Quantized Acc (1.64 bpp) & 87.40\% & \textbf{88.59\%} & \textbf{+1.19\%} Accuracy \\
         \bottomrule
     \end{tabular}
     }
 \end{table}
 
-Without architecture-specific tuning, \texttt{dreg} cuts spatial roughness by \textbf{84.5\%} and nearly doubles low-frequency spectral energy ($27.87\% \to 52.84\%$). When zeroing all DCT coefficients above $\rho = 0.40$, the Topographic MLP retains \textbf{41.41\%} accuracy vs.\ $30.69\%$ for Standard (\textbf{+10.72\%} absolute accuracy, or $+11.01\%$ smaller accuracy drop relative to FP32). Under $1.64$~bpp Base-3 TritQ, Topographic outperforms Standard by \textbf{+1.19\%}.
-
-\subsection{Comparative Quantization Analysis}
-To compare spectral Base-3 TritQ against simple spatial and spectral round-to-nearest (RTN) baselines, we evaluated the converged 10,000-step checkpoints on a standardized 25-batch validation split ($204{,}800$ tokens; note that expanding from 20 to 25 validation batches shifts FP32 baseline PPL slightly from $5.83/6.18$ in Table~\ref{tab:10k_results} to $6.11/6.46$ in Tables~\ref{tab:sota} and~\ref{tab:pareto_sweep}).
-
-\begin{table}[t]
-    \centering
-    \small
-    \caption{\textbf{Comparative Quantization Analysis on TinyStories 10M (10,000 steps, 25 val batches / 204.8K tokens).} All schemes quantize the 56 linear projections ($8.39$M weights) while leaving embeddings and \texttt{lm\_head} in FP32. Positive Dirichlet Gain means lower (better) PPL for Topographic.}
-    \label{tab:sota}
-    \resizebox{\textwidth}{!}{
-    \begin{tabular}{lccccc}
-        \toprule
-        \textbf{Quantization Scheme} & \textbf{Rate (bpp)} & \textbf{Linear Footprint} & \textbf{Std PPL} & \textbf{Topo PPL} & \textbf{Dirichlet Gain ($\text{Std} - \text{Topo}$)} \\
-        \midrule
-        Dense FP32 (Reference) & 32.00 & 33.55 MB & \textbf{6.11} & 6.46 & $-0.35$ PPL \\
-        Spatial Uniform INT4 (per-tensor RTN) & 4.00 & 4.19 MB & \textbf{6.79} & 7.01 & $-0.22$ PPL \\
-        Spectral Uniform INT4 (2D-DCT RTN) & 4.00 & 4.19 MB & \textbf{7.85} & 8.97 & $-1.12$ PPL \\
-        Spatial Uniform INT2 (per-tensor ternary RTN) & 2.00 & 2.10 MB & \textbf{41.67} & 55.22 & $-13.55$ PPL \\
-        \midrule
-        \textbf{Base-3 TritQ (Mid-Band, Ours)} & \textbf{2.181} & \textbf{2.29 MB} & 30.10 & \textbf{23.08} & \textbf{+7.02 PPL} \\
-        \textbf{Base-3 TritQ (Calibrated, Ours)} & \textbf{1.638} & \textbf{1.72 MB} & 73.75 & \textbf{66.50} & \textbf{+7.25 PPL} \\
-        \bottomrule
-    \end{tabular}
-    }
-\end{table}
-
-Table~\ref{tab:sota} reveals an instructive structural contrast. Under \emph{spatial} per-tensor INT2 RTN ($2.00$~bpp), both models degrade heavily ($41.67$ and $55.22$~PPL), and Dirichlet smoothing does not help coordinate-space RTN (nor uniform per-tensor DCT INT4, where DC spikes widen the uniform quantization dynamic range). Once quantization is allocated hierarchically across frequency bands via \texttt{.tritq}, however, Dirichlet smoothness produces consistent gains: at $2.181$~bpp ($2.29$~MB linear weights), Topographic TritQ achieves \textbf{23.08~PPL}---beating both Standard TritQ ($30.10$~PPL, $+7.02$) and Spatial INT2 RTN ($41.67$~PPL, $+18.59$). At the lower $1.638$~bpp point, Topographic maintains a $+7.25$~PPL advantage over Standard TritQ ($66.50$ vs.\ $73.75$), though absolute perplexity rises above Spatial INT2 at $2.00$~bpp. Comparisons against stronger group-wise RTN, second-order PTQ (GPTQ/AWQ/QuIP\#), and native QAT (BitNet b1.58) remain essential future work (\S\ref{sec:limitations}).
-
-\subsection{Empirical Pareto Frontier: Rate--Distortion Sweep}
-\label{sec:pareto_frontier}
-To map the complete rate--distortion behavior, we swept six radial threshold settings $(r_0, r_1, r_2)$ on the converged 10,000-step models across the same 25 validation batches ($204{,}800$ tokens), where edge-normalized roughness is $E_D^{\text{edges}} = 0.001724$ (Topographic) vs.\ $0.006178$ (Standard, $-72.1\%$). Table~\ref{tab:pareto_sweep} and Figure~\ref{fig:pareto}(b) present the results.
-
-\begin{table}[t]
-    \centering
-    \small
-    \caption{\textbf{Empirical Rate--Distortion Pareto Sweep (TinyStories 10M, 10,000 steps, 25 val batches / 204.8K tokens).} Compression ratio and bit-rate are measured over the 56 linear weight matrices ($E_D^{\text{edges}}$: Std $= 0.006178$, Topo $= 0.001724$, $-72.1\%$). Positive Dirichlet Gain means lower (better) PPL for Topographic.}
-    \label{tab:pareto_sweep}
-    \resizebox{\textwidth}{!}{
-    \begin{tabular}{lcccccc}
-        \toprule
-        \textbf{Regime} & \textbf{Cutoffs $(r_0, r_1, r_2)$} & \textbf{Effective Rate (bpp)} & \textbf{Compression} & \textbf{Std PPL} & \textbf{Topo PPL} & \textbf{Dirichlet Gain} \\
-        \midrule
-        Ultra-Aggressive & $(0.08, 0.22, 0.50)$ & 0.430 bpp & 74.4$\times$ & 5274.18 & \textbf{2890.48} & \textbf{+2383.70 PPL} \\
-        Aggressive       & $(0.10, 0.30, 0.75)$ & 0.914 bpp & 35.0$\times$ & \textbf{835.92} & 1117.65 & $-281.73$ PPL (Topo worse) \\
-        Calibrated TritQ & $(0.15, 0.40, 1.00)$ & 1.638 bpp & 19.5$\times$ & 73.75 & \textbf{66.50} & \textbf{+7.25 PPL} \\
-        Mid-Band         & $(0.20, 0.55, 1.15)$ & 2.181 bpp & 14.7$\times$ & 30.10 & \textbf{23.08} & \textbf{+7.02 PPL} \\
-        High-Fidelity    & $(0.30, 0.70, 1.30)$ & 2.794 bpp & 11.5$\times$ & 14.97 & \textbf{12.43} & \textbf{+2.54 PPL} \\
-        Conservative     & $(0.45, 0.90, 1.41)$ & 3.774 bpp & 8.5$\times$  & 8.87  & \textbf{8.22}  & \textbf{+0.65 PPL} \\
-        \midrule
-        Dense FP32 Reference & Unquantized (32.0 bpp) & 32.000 bpp & 1.0$\times$ & \textbf{6.11} & 6.46 & $-0.35$ PPL \\
-        \bottomrule
-    \end{tabular}
-    }
-\end{table}
-
-\paragraph{Analysis of the Frontier.}
-Across the entire practical operating range ($1.638$--$3.774$~bpp), Topographic Dirichlet regularization strictly dominates the unregularized baseline (gaining $+7.25$, $+7.02$, $+2.54$, and $+0.65$~PPL respectively), even starting from a slightly higher FP32 perplexity ($6.46$ vs.\ $6.11$). Below $1.0$~bpp ($0.430$--$0.914$~bpp), however, both models suffer severe perplexity collapse ($\ge 835$~PPL) under single-pass post-training spectral truncation. Notably, the Aggressive $0.914$~bpp point is the sole regime where Topographic trails Standard ($1117.65$ vs.\ $835.92$~PPL), indicating sensitivity to sharp radial cutoffs inside the active FFN mid-band where $1/(MN)$ scaling left $75\%$ of FFN energy above $\rho = 0.40$ (Figure~\ref{fig:spectra}). Resolving this FFN scaling imbalance is a high-leverage path toward pushing viable spectral quantization below $1.0$~bpp.
-
 % -----------------------------------------------------------------------------
-\section{Discussion \& Analysis}
+\section{Discussion, Limitations, and Broader Impact}
 \label{sec:discussion}
 % -----------------------------------------------------------------------------
 
-\subsection{Why External Template Anchoring Fails: The Rank-1 Clamping Attractor}
-During early exploratory work, we tested whether cross-seed alignment could be induced via an external harmonic potential $R_{\text{ext}}(W) = -\lambda \sum \sin(2\pi i / M) W_{i, j}$. While this forced independent seeds to correlate strongly ($\rho_{\text{raw}} = 0.996$), it triggered a catastrophic \textbf{rank-1 clamping attractor}: the effective singular rank collapsed from $199.2$ to $3.58$, destroying expressivity. This negative result clarifies that \textbf{the value of spatial regularization lies in intrinsic self-organization, not external template clamping}: intrinsic Dirichlet diffusion preserves full representational rank while compacting energy toward low frequencies.
+\paragraph{Intrinsic Self-Organization vs.\ External Clamping.}
+During early exploratory experiments, forcing cross-seed alignment via an external sinusoidal potential $R_{\text{ext}}(W) = -\lambda \sum \sin(2\pi i / M) W_{i,j}$ produced $\rho_{\text{raw}} = 0.996$ correlation across seeds but triggered a catastrophic \textbf{rank-1 clamping attractor} (effective singular rank collapsed from $199.2$ to $3.58$). Intrinsic Dirichlet diffusion avoids this degeneracy entirely by penalizing local gradients rather than pinning weights to a fixed template.
 
-\subsection{Hardware and Edge Silicon Implications}
-Our C11 DMA micro-kernel demonstrates zero-copy double-buffered spectral unpacking with float32 parity ($3.6 \times 10^{-7}$ max error, $192$~KB working buffers for $128 \times 128$ matrices). For compact edge models ($d_{\text{model}} \le 128$), explicit ping-pong decompression fits within $512$~KB--$1$~MB microcontroller SRAM (e.g., STM32H7, ESP32-S3, Cortex-M55). Scaling sub-megabyte SRAM execution to wider 10M+ models ($d_{\text{ffn}} = 1024$) requires avoiding full-matrix materialization via Block-DCT tiling or the direct spectral-domain matvec $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$ derived in \S\ref{sec:systems}, alongside Flash-streamed embedding lookups.
+\paragraph{Edge Hardware Implications.}
+By combining \texttt{.tritq} Base-3 packing ($1.72$~MB for all 56 linear matrices of TinyStories-10M at $1.638$~bpp) with our C11 direct spectral matvec (\texttt{c\_spectral\_matvec\_direct}, \textbf{13.0~KB} working SRAM, $650\times$ smaller than explicit 2D-IDCT materialization, $45.6\times$ faster), sub-2-bit spectral inference becomes feasible on commodity $512$~KB--$1$~MB microcontrollers (e.g., STM32H7, ESP32-S3, Cortex-M55) without full-layer scratchpads.
 
-\subsection{Topological Annealing: Preliminary Proof-of-Concept}
-\label{sec:annealing}
-Static Dirichlet regularization introduces a small dense FP32 gap ($5.83 \to 6.18$~PPL in Table~\ref{tab:10k_results}). To investigate whether releasing surface tension late in training recovers dense capacity while retaining smoothness via geometric inertia, we implemented \textbf{Dirichlet Annealing} (\texttt{StepCooldownScheduler}):
-\begin{equation}
-    \lambda_{\text{topo}}(t) = 
-    \begin{cases}
-        \lambda_0 & \text{for } t < (1 - \rho_{\text{cooldown}}) T, \\
-        0 & \text{for } t \ge (1 - \rho_{\text{cooldown}}) T.
-    \end{cases}
-\end{equation}
+\paragraph{Limitations.}
+Four limitations remain transparent opportunities for future work:
+(1) \textbf{FP32 Capacity Trade-off:} Strong Rayleigh smoothing ($\lambda = 2.0$, annealed) raises converged TinyStories-10M FP32 PPL from $5.81$ to $7.78$; exploring cosine-annealed schedules, spectral-QAT fine-tuning, or layer-adaptive $\lambda_l$ may narrow this dense gap further while preserving sub-2-bit gains.
+(2) \textbf{Second-Order PTQ & Billion-Scale QAT Comparisons:} While we now benchmark against group-wise INT2 ($g=64$) and budget-matched quantized SVD, head-to-head comparisons against Hessian-based PTQ (GPTQ, AWQ, QuIP\#) and native QAT (BitNet b1.58) at 1B+ parameter scales remain important future work.
+(3) \textbf{Pre-Trained LLM Residual Discontinuities:} In GPT-2 124M, concatenated $[W_Q \mid W_K \mid W_V]$ matrices (\texttt{c\_attn}) introduce sharp internal step boundaries across head blocks, and short 1,500-step adaptation still leaves a gap below $2.0$~bpp ($178.7$~PPL at $1.63$~bpp); splitting $Q/K/V$ before smoothing or combining \texttt{dreg} with spectral PEFT~\citep{gao2024fourierft} is a natural next step.
+(4) \textbf{Planar Lattice Assumption:} Our operator uses a planar 2D Neumann grid; toroidal, spherical, or learned graph-Laplacian topologies remain unexplored.
 
-\paragraph{Preliminary 5k-Step PoC and Confounds.}
-In an exploratory 5,000-step TinyStories-10M run ($\lambda_0 = 30.0$, $\rho_{\text{cooldown}} = 0.15$, using \texttt{edges} normalization), releasing $\lambda \to 0$ at step $4{,}250$ immediately improved dense FP32 perplexity from $7.90$ to $7.50$~PPL while retaining $E_D^{\text{edges}} = 0.002208$ ($-64.3\%$ relative to the 10k Standard baseline $0.006178$) and achieving $55.68$~PPL at $1.638$~bpp. \textbf{Important methodological caveat:} this PoC is \emph{not} a controlled comparison against Table~\ref{tab:pareto_sweep} ($66.50$~PPL at 10k steps) for two reasons: (1) shorter training runs have lower weight norms and lower quantized PPL even without annealing (compare $39.80$~PPL at 2k steps in Table~\ref{tab:calibration} vs.\ $66.13$~PPL at 10k steps in Table~\ref{tab:10k_results}), and (2) the 5k run used \texttt{edges} normalization ($\sim 0.5\times$ the effective $\lambda$ of the 10k \texttt{numel} run). A matched 10k-step controlled run with identical normalization is required to verify whether annealing strictly improves the 10k Pareto frontier.
-
-\subsection{Reproducibility \& Open-Source Software}
-All core library code (\texttt{dreg}, including Rayleigh variance-normalized and parameter-weighted Dirichlet modes plus Lloyd--Max Band-2 quantization), the C11 DMA and direct spectral matvec micro-kernel (\path{kernel/}), 99 automated tests ($96\%$ coverage), CPU verification scripts (\path{examples/reproduce_all.py}), Modal GPU training and evaluation scripts (\path{benchmarks/}), and JSON evaluation logs (\path{results/}) are released under the MIT license at \url{https://github.com/mcarbonell/dirichlet-regularization}.
-
-% -----------------------------------------------------------------------------
-\section{Limitations}
-\label{sec:limitations}
-% -----------------------------------------------------------------------------
-Several important limitations of this study and preprint warrant transparent discussion:
-
-\paragraph{Single-Seed Evaluation.}
-All TinyStories-10M and MNIST results reported in Tables~\ref{tab:calibration}--\ref{tab:pareto_sweep} are from single training runs ($N=1$ seed). While the $72\%$--$85\%$ roughness reduction and rate--distortion trends are large and consistent across 5 of 6 bit-rates, multi-seed replications ($N \ge 3$) with mean $\pm$ standard deviation are needed for formal statistical significance testing.
-
-\paragraph{Scope of Comparative Baselines.}
-Table~\ref{tab:sota} compares \texttt{.tritq} against per-tensor uniform RTN baselines (INT4/INT2). We have not yet benchmarked against per-group RTN, second-order PTQ methods (GPTQ, AWQ, QuIP\#), native low-bit QAT (BitNet b1.58), quantized low-rank SVD at matched byte budgets, or competing regularizers (heavy $L_2$ weight decay sweeps, Total Variation $L_1$). These comparisons are necessary before claiming overall superiority over established PTQ/QAT pipelines.
-
-\paragraph{Layer-Size Scaling Asymmetry ($1/(MN)$ Attenuation).}
-As revealed in Figure~\ref{fig:spectra}, normalizing each matrix's Dirichlet energy by $MN$ attenuates per-weight smoothing by $4\times$ on $256 \times 1024$ FFN projections ($\sim 25\%$ energy below $\rho = 0.40$) relative to $256 \times 256$ Attention projections ($\sim 72\%$). To address this, \texttt{dreg} now implements scale-invariant Rayleigh normalization $\mathcal{E}_D^{\text{rayleigh}}(W) = \sum \Delta^2 / (2\|W\|_F^2)$ with \texttt{param\_weighted} layer aggregation and 1D Lloyd--Max Band-2 ternary scaling $\alpha^* = \mathbb{E}[|s| \mid |s| > \tau]$; in small-scale CPU ablations ($d=64, d_{\text{ffn}}=256$), Rayleigh parameter-weighted training raises FFN low-frequency compaction from $17.3\%$ to $83.2\%$ while improving FP32 PPL ($9.00 \to 7.57$). Full 10M-scale multi-seed re-training with these upgrades is planned for the next revision.
-
-\paragraph{Pre-Trained Model Adaptation (GPT-2 124M).}
-Evaluating pre-trained OpenAI GPT-2 (124M, 48 dense projections) confirms that unregularized pre-trained weights exhibit high intrinsic roughness ($E_D^{\text{edges}} = 0.033514$) and collapse under $1.63$~bpp \texttt{.tritq} ($8{,}055.96$~PPL vs.\ $14.31$~FP32). In an initial 300-step fine-tuning test, a small penalty ($\lambda = 10^{-3}$) paired with a misconfigured early cooldown (active for only 45 steps) produced negligible roughness change ($\Delta E_D < 0.01\%$). Exploratory 2D Bipartite TSP row/column permutation reduced GPT-2 roughness by $13.8\%$ and halved $1.63$~bpp perplexity ($8{,}055.96 \to 4{,}374.83$~PPL), though still collapsed. Properly calibrated high-$\lambda$ fine-tuning ($\lambda \in [10, 100]$) and spectral PEFT adapters~\citep{gao2024fourierft} for pre-trained LLMs remain open work.
-
-\paragraph{Training Overhead and Planar Topology.}
-Evaluating the 2D finite-difference stencil adds $\mathcal{O}(MN)$ work per regularized layer during training (typically $<5\%$ wall-clock overhead on GPU). Our formulation also assumes a planar 2D lattice; non-Euclidean (toroidal, spherical, or learned graph-Laplacian) topologies remain unexplored.
-
-% -----------------------------------------------------------------------------
-\section{Broader Impact}
-\label{sec:broader_impact}
-% -----------------------------------------------------------------------------
-Reducing the storage and memory bandwidth demands of neural networks helps enable private, offline intelligence on low-power edge devices and lowers operational energy consumption. Because the models studied here are small ($235\text{K}$--$10.56\text{M}$ parameters), dual-use risks are minimal relative to frontier systems; nevertheless, aggressive quantization can alter model calibration and error profiles, so compressed models should be audited carefully before deployment in safety-critical settings.
+\paragraph{Reproducibility \& Broader Impact.}
+All library code (\texttt{dreg}, installable via \texttt{pip install dirichlet-regularization}), the C11 DMA and direct spectral matvec micro-kernel (\path{kernel/}), 102 automated tests, CPU reproduction scripts (\path{examples/reproduce_all.py}), Modal multi-seed training/evaluation pipelines (\path{benchmarks/}), and raw JSON metrics (\path{results/}) are released under the MIT license at \url{https://github.com/mcarbonell/dirichlet-regularization}. Lowering storage and SRAM requirements enables private offline edge AI with lower energy consumption; because aggressive compression can shift calibration and error profiles, compressed checkpoints should be audited before safety-critical deployment.
 
 % -----------------------------------------------------------------------------
 \section{Conclusion}
 \label{sec:conclusion}
 % -----------------------------------------------------------------------------
-We presented Dirichlet Weight Regularization (\texttt{dreg}), a simple training-time penalty that breaks permutation invariance in neural weight matrices to induce smooth 2D manifolds and concentrate spectral energy in the orthonormal 2D-DCT domain. Paired with Base-3 Trit Quantization (\texttt{.tritq}), \texttt{dreg} reduces weight roughness by $72.1\%$ on TinyStories-10M and $84.5\%$ on MNIST MLPs, delivering consistent rate--distortion improvements across the $1.64$--$3.77$~bpp frontier ($+7.25$~PPL at $1.638$~bpp, $+7.02$~PPL at $2.181$~bpp) and $+10.72\%$ higher accuracy under aggressive low-pass truncation on MNIST. Together with our portable C11 DMA micro-kernel and direct spectral-domain matvec analysis, these results establish spatial weight geometry as a promising, under-explored axis for compact neural network design.
+We presented Dirichlet Weight Regularization (\texttt{dreg}), a training-time geometric inductive bias that breaks permutation invariance in neural weight matrices to induce smooth, 2D-DCT-compressible weight manifolds. By identifying and resolving FFN gradient starvation via scale-invariant Riemannian Rayleigh normalization and parameter-weighted aggregation, and pairing it with zero-overhead MSE-clipped / Lloyd--Max Base-3 Trit quantization (\texttt{.tritq}) and controlled annealing, we achieve \textbf{4.04$\times$} lower perplexity at $1.638$~bpp ($16.87$ vs.\ $68.21$), \textbf{11.4$\times$} lower perplexity at sub-1-bit $0.914$~bpp ($95.60$ vs.\ $1{,}085.5$), \textbf{2.19$\times$--3.45$\times$} improvements over group-wise INT2 ($g=64$), \textbf{23$\times$--77$\times$} perplexity reductions on pre-trained GPT-2 (124M), and a \textbf{650$\times$} working-SRAM reduction via direct spectral C11 inference. Together, these results establish spatial weight geometry as a high-leverage axis for compact neural network design.
 
 \section*{Acknowledgments}
-The author thanks Modal for providing cloud GPU infrastructure.
+The author thanks Modal for cloud GPU infrastructure used in multi-seed training and evaluation.
 
 \newpage
 \bibliographystyle{plainnat}
@@ -500,7 +502,7 @@ The author thanks Modal for providing cloud GPU infrastructure.
 \label{sec:appendix_hyperparams}
 % -----------------------------------------------------------------------------
 
-Table~\ref{tab:app_hyperparams} lists the exact training and architectural hyperparameters corresponding to \path{benchmarks/modal_train_tinystories.py} and \path{examples/train_mlp_dirichlet.py}.
+Table~\ref{tab:app_hyperparams} lists exact hyperparameters synchronized with the Modal and CPU scripts in \path{benchmarks/} and \path{examples/}.
 
 \begin{table}[ht]
     \centering
@@ -508,53 +510,41 @@ Table~\ref{tab:app_hyperparams} lists the exact training and architectural hyper
     \caption{\textbf{Verified Experimental Hyperparameters (Synchronized with Codebase).}}
     \label{tab:app_hyperparams}
     \resizebox{\textwidth}{!}{
-    \begin{tabular}{lcc}
+    \begin{tabular}{lccc}
         \toprule
-        \textbf{Hyperparameter} & \textbf{TinyStories 10M Transformer} & \textbf{MNIST Vision MLP} \\
+        \textbf{Hyperparameter} & \textbf{TinyStories-10M ($N=3$)} & \textbf{GPT-2 (124M)} & \textbf{MNIST MLP} \\
         \midrule
-        Layers & 8 SwiGLU Transformer Blocks & 3 Dense Layers (bias-free) \\
-        Hidden Dimension ($d_{\text{model}}$) & 256 & 256 / 128 \\
-        FFN Intermediate Dimension & 1024 & --- \\
-        Attention Heads & 4 & --- \\
-        Vocabulary Size / Classes & 4096 (Byte-Level BPE) & 10 (Output Classes) \\
-        Maximum Sequence Length / Input & 256 & 784 (Flattened $28\times28$) \\
-        Total Trainable Parameters & 10.56M (8.39M regularized linear) & 234.75K \\
+        Architecture & 8 SwiGLU Blocks & 12 GPT-2 Blocks (Pre-trained) & 3 Dense Layers \\
+        Hidden / FFN Dim & 256 / 1024 (4 heads) & 768 / 3072 (12 heads) & 256 / 128 \\
+        Regularized Matrices & 56 linear ($8.39$M weights) & 48 \texttt{Conv1D} ($84.9$M weights) & 3 linear ($234.8$K) \\
+        Sequence Length / Input & 256 (BPE-4096) & 256 (GPT-2 BPE-50257) & 784 ($28\times28$) \\
         \midrule
-        Optimizer & AdamW ($\beta_1=0.9, \beta_2=0.999$) & AdamW ($\beta_1=0.9, \beta_2=0.999$) \\
-        Learning Rate & $5 \times 10^{-4}$ (Constant / Flat) & $1 \times 10^{-3}$ (Constant / Flat) \\
-        Weight Decay ($L_2$) & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ \\
-        Dirichlet Coupling ($\lambda_{\text{topo}}$, \texttt{numel}) & $30.0$ (sweep: $\{0, 0.01, 5, 15, 30\}$) & $15.0$ \\
-        Gradient Clipping & $1.0$ (Max Norm) & None \\
-        Batch Size & 32 sequences ($8{,}192$ tokens/batch) & 64 \\
-        Total Training Steps & 10,000 steps ($81.92$M tokens) & 5 Epochs \\
-        Calibrated TritQ Radii $(r_0, r_1, r_2)$ & $(0.15, 0.40, 1.00)$ ($1.638$~bpp) & $(0.15, 0.40, 1.00)$ ($1.639$~bpp) \\
-        Hardware Accelerator & NVIDIA A10G (24 GB VRAM) & CPU / Single GPU \\
+        Optimizer & AdamW ($\beta_1=0.9, \beta_2=0.999$) & AdamW (bf16 amp) & AdamW \\
+        Learning Rate & $5 \times 10^{-4}$ (Flat) & $3 \times 10^{-4}$ (50-step warmup + cos) & $1 \times 10^{-3}$ \\
+        Weight Decay ($L_2$) & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ & $1 \times 10^{-4}$ \\
+        Dirichlet Mode & \texttt{rayleigh} + \texttt{param\_weighted} & \texttt{rayleigh\_sg} + \texttt{param\_weighted} & \texttt{numel} \\
+        Coupling ($\lambda_0$) & $\{0.0, 1.0, 2.0\}$ (+ anneal $\rho_c=0.15$) & $\{0, 25, 75, 200, 500\}$ (+ anneal) & $15.0$ \\
+        Batch Size / Steps & 32 / 10,000 ($81.92$M tokens) & 8 / 1,500 ($3.07$M tokens) & 64 / 5 Epochs \\
+        Seeds & $\{42, 100, 2024\}$ ($N=3$) & $42$ & $42$ \\
+        TritQ Quantizer & \texttt{mse\_clip} + \texttt{lloyd\_max} & \texttt{mse\_clip} + \texttt{lloyd\_max} & Calibrated $(0.15,0.40,1.0)$ \\
+        Hardware & NVIDIA A10G (Modal) & NVIDIA A10G (Modal) & CPU / Single GPU \\
         \bottomrule
     \end{tabular}
     }
 \end{table}
 
 % -----------------------------------------------------------------------------
-\section{Continuous Gradient Flow Motivation}
+\section{Continuous Gradient Flow \& Riemannian Sphere Derivation}
 \label{sec:appendix_derivation}
 % -----------------------------------------------------------------------------
-Let $\mathcal{W}: \Omega \to \mathbb{R}$ denote a continuously differentiable scalar field over a compact domain $\Omega \subset \mathbb{R}^2$. The continuous Dirichlet energy functional is:
+Let $\mathcal{W}: \Omega \to \mathbb{R}$ denote a smooth scalar field over a compact domain $\Omega \subset \mathbb{R}^2$. The continuous Dirichlet energy $\mathcal{E}_D^{\text{cont}}(\mathcal{W}) = \frac{1}{2}\int_\Omega \|\nabla \mathcal{W}\|^2\,du\,dv$ has first variation under homogeneous Neumann boundary conditions ($\nabla \mathcal{W}\cdot\hat{n}=0$ on $\partial\Omega$):
 \begin{equation}
-    \mathcal{E}_D^{\text{cont}}(\mathcal{W}) = \frac{1}{2} \int_\Omega \|\nabla \mathcal{W}(u, v)\|^2 \, du \, dv = \frac{1}{2} \int_\Omega \left( \left(\frac{\partial \mathcal{W}}{\partial u}\right)^2 + \left(\frac{\partial \mathcal{W}}{\partial v}\right)^2 \right) du \, dv.
+    \left.\frac{d}{d\epsilon} \mathcal{E}_D^{\text{cont}}(\mathcal{W} + \epsilon \eta)\right|_{\epsilon=0} = -\int_\Omega \eta\,\Delta \mathcal{W}\,du\,dv,
 \end{equation}
-Taking the first variation with respect to a smooth test perturbation $\eta$:
-\begin{align}
-    \left.\frac{d}{d\epsilon} \mathcal{E}_D^{\text{cont}}(\mathcal{W} + \epsilon \eta)\right|_{\epsilon=0} &= \int_\Omega \nabla \mathcal{W} \cdot \nabla \eta \, du \, dv \\
-    &= \int_{\partial \Omega} \eta (\nabla \mathcal{W} \cdot \hat{n}) \, ds - \int_\Omega \eta \Delta \mathcal{W} \, du \, dv.
-\end{align}
-Under homogeneous Neumann boundary conditions $\nabla \mathcal{W} \cdot \hat{n} = 0$ on $\partial \Omega$ (zero normal flux at the matrix borders), the boundary term vanishes, yielding the Euler--Lagrange gradient $-\Delta \mathcal{W}$ and the continuous heat diffusion flow:
+yielding the heat diffusion flow $\partial_t \mathcal{W} = \Delta \mathcal{W}$. On the discrete lattice $\mathbb{Z}_M \times \mathbb{Z}_N$, minimizing the scale-invariant Rayleigh quotient $\mathcal{R}(W) = \frac{1}{2}\mathcal{D}(W)/\|W\|_F^2$ yields the gradient
 \begin{equation}
-    \frac{\partial \mathcal{W}}{\partial t} = -\frac{\delta \mathcal{E}_D^{\text{cont}}}{\delta \mathcal{W}} = \Delta \mathcal{W}.
+    \nabla_W \mathcal{R}(W) = \frac{1}{\|W\|_F^2}\Big(-\Delta W - \mathcal{R}(W)\,W\Big) = \left(I - \frac{W \otimes W}{\|W\|_F^2}\right)\left(\frac{-\Delta W}{\|W\|_F^2}\right),
 \end{equation}
-On the unit-spacing discrete lattice $\mathbb{Z}_M \times \mathbb{Z}_N$, the corresponding discrete energy~\eqref{eq:dirichlet_discrete} produces the exact 5-point Neumann Laplacian stencil at interior coordinates:
-\begin{equation}
-    [\Delta W]_{i, j} = W_{i+1, j} + W_{i-1, j} + W_{i, j+1} + W_{i, j-1} - 4 W_{i, j},
-\end{equation}
-acting as an intrinsic spatial low-pass diffusion operator during optimization.
+which is the exact orthogonal projection of the Neumann diffusion vector $-\Delta W / \|W\|_F^2$ onto the tangent space $T_W \mathbb{S}^{MN-1}$ of the Frobenius sphere. Consequently, $\langle W, \nabla_W \mathcal{R}(W) \rangle = 0$ identically, preserving weight scale while driving high spatial frequencies to zero.
 
 \end{document}

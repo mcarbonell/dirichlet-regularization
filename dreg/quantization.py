@@ -41,6 +41,7 @@ class Base3TritQuantizer:
         r1: float = 0.25,
         r2: float = 0.50,
         band2_mode: str = "lloyd_max",
+        band01_mode: str = "mse_clip",
     ):
         if not (0.0 <= r0 <= r1 <= r2):
             raise ValueError(
@@ -50,11 +51,63 @@ class Base3TritQuantizer:
             raise ValueError(
                 f"Unknown band2_mode: {band2_mode}. Expected 'lloyd_max' or 'legacy'."
             )
+        if band01_mode not in {"mse_clip", "minmax"}:
+            raise ValueError(
+                f"Unknown band01_mode: {band01_mode}. Expected 'mse_clip' or 'minmax'."
+            )
         self.r0 = float(r0)
         self.r1 = float(r1)
         self.r2 = float(r2)
         self.band2_mode = band2_mode
+        self.band01_mode = band01_mode
         self._lut = self._build_trit_lut()
+
+    @staticmethod
+    def _optimal_uniform_range(vals: torch.Tensor, n_levels: int) -> Tuple[float, float]:
+        """
+        Finds MSE-optimal asymmetric clipping range [lo, hi] for uniform quantization
+        with `n_levels` levels (e.g., 256 for 8-bit Band 0, 16 for 4-bit Band 1).
+        Always includes the full unclipped [min, max] candidate, guaranteeing MSE
+        is strictly <= unclipped min-max quantization at zero bit-rate overhead.
+        """
+        lo_full = vals.min().item()
+        hi_full = vals.max().item()
+        if hi_full <= lo_full or vals.numel() <= 4:
+            return lo_full, hi_full
+
+        max_q = float(n_levels - 1)
+        sample = vals if vals.numel() <= 65536 else vals[:: max(1, vals.numel() // 65536)]
+        sample = sample.float()
+
+        candidates: list[Tuple[float, float]] = [(lo_full, hi_full)]
+        qs = (1e-4, 5e-4, 1e-3, 3e-3, 1e-2, 2e-2, 5e-2)
+        q_tensor = torch.tensor(qs + tuple(1.0 - q for q in qs), device=sample.device, dtype=torch.float32)
+        q_vals = torch.quantile(sample, q_tensor).tolist()
+        n_q = len(qs)
+        for i in range(n_q):
+            lo_i, hi_i = q_vals[i], q_vals[n_q + i]
+            if hi_i > lo_i:
+                candidates.append((lo_i, hi_i))
+        # Also allow one-sided clipping for asymmetric DC spikes in Band 0
+        for i in (1, 3, 4):
+            if q_vals[n_q + i] > lo_full:
+                candidates.append((lo_full, q_vals[n_q + i]))
+            if hi_full > q_vals[i]:
+                candidates.append((q_vals[i], hi_full))
+
+        best_mse = float("inf")
+        best_lo, best_hi = lo_full, hi_full
+        for lo, hi in candidates:
+            scale = (hi - lo) / max_q
+            if scale <= 0.0:
+                continue
+            q = torch.clamp(((vals - lo) / (scale + 1e-12)).round(), 0.0, max_q)
+            rec = q * scale + lo
+            mse = (vals - rec).pow(2).mean().item()
+            if mse < best_mse:
+                best_mse = mse
+                best_lo, best_hi = lo, hi
+        return best_lo, best_hi
 
     @staticmethod
     def _build_trit_lut() -> np.ndarray:
@@ -95,7 +148,10 @@ class Base3TritQuantizer:
         # Band 0: 8-bit
         vals0 = spec[mask0]
         if vals0.numel() > 0:
-            min0, max0 = vals0.min().item(), vals0.max().item()
+            if self.band01_mode == "mse_clip":
+                min0, max0 = self._optimal_uniform_range(vals0, 256)
+            else:
+                min0, max0 = vals0.min().item(), vals0.max().item()
             scale0 = (max0 - min0) / 255.0 if max0 > min0 else 1.0
             q0 = torch.clamp(((vals0 - min0) / (scale0 + 1e-12)).round(), 0, 255).to(torch.uint8)
         else:
@@ -105,7 +161,10 @@ class Base3TritQuantizer:
         # Band 1: 4-bit nibbles (2 values per byte)
         vals1 = spec[mask1]
         if vals1.numel() > 0:
-            min1, max1 = vals1.min().item(), vals1.max().item()
+            if self.band01_mode == "mse_clip":
+                min1, max1 = self._optimal_uniform_range(vals1, 16)
+            else:
+                min1, max1 = vals1.min().item(), vals1.max().item()
             scale1 = (max1 - min1) / 15.0 if max1 > min1 else 1.0
             q1_raw = torch.clamp(((vals1 - min1) / (scale1 + 1e-12)).round(), 0, 15).to(torch.uint8)
             if len(q1_raw) % 2 != 0:

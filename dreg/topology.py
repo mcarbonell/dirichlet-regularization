@@ -58,6 +58,11 @@ def dirichlet_energy_2d(
             - 'rayleigh': Variance-normalized Rayleigh quotient of the 2D Neumann Laplacian:
               ``sum_sq / (2 * ||W||_F^2 + 1e-8)`` in ``[0, 4]``. Strictly scale-invariant
               (immune to L2 magnitude shrinkage) and dimensionless across matrix scales.
+            - 'rayleigh_sg': Stop-gradient Rayleigh normalization:
+              ``sum_sq / (2 * sg(||W||_F^2) + 1e-8)`` in ``[0, 4]``. Same forward value as
+              'rayleigh', but detaches the Frobenius norm denominator so backward yields pure
+              scale-invariant Neumann heat diffusion (-Delta W / ||W||_F^2) with zero
+              anti-decay / outlier inflation.
             - 'none': Raw sum of squared differences without division.
 
     Returns:
@@ -100,11 +105,14 @@ def dirichlet_energy_2d(
     elif normalization == "rayleigh":
         frob_sq = sheet.pow(2).sum()
         return sum_sq / (2.0 * frob_sq + 1e-8)
+    elif normalization == "rayleigh_sg":
+        frob_sq = sheet.pow(2).sum().detach()
+        return sum_sq / (2.0 * frob_sq + 1e-8)
     elif normalization == "none":
         return sum_sq
     else:
         raise ValueError(
-            f"Unknown normalization mode: {normalization}. Expected 'numel', 'edges', 'rayleigh', or 'none'."
+            f"Unknown normalization mode: {normalization}. Expected 'numel', 'edges', 'rayleigh', 'rayleigh_sg', or 'none'."
         )
 
 

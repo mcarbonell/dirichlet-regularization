@@ -289,3 +289,31 @@ class TestTritQFormat:
         finally:
             os.unlink(path)
 
+    def test_mse_clip_strictly_improves_heavy_tailed_band01(self):
+        """MSE-optimal clipping on Band 0 & 1 must achieve <= MSE of unclipped min-max on outlier spectra."""
+        torch.manual_seed(123)
+        spec = torch.randn(64, 64) * 0.1
+        # Inject heavy-tailed spectral spikes in Band 0 and Band 1
+        spec[0, 0] = 25.0
+        spec[12, 12] = 18.0
+        spec[14, 10] = -15.0
+
+        q_mm = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00, band01_mode="minmax", band2_mode="lloyd_max")
+        q_mc = Base3TritQuantizer(r0=0.15, r1=0.40, r2=1.00, band01_mode="mse_clip", band2_mode="lloyd_max")
+
+        rec_mm = q_mm.dequantize_matrix(q_mm.quantize_matrix(spec))
+        rec_mc = q_mc.dequantize_matrix(q_mc.quantize_matrix(spec))
+
+        mse_mm = (spec - rec_mm).pow(2).mean().item()
+        mse_mc = (spec - rec_mc).pow(2).mean().item()
+        assert mse_mc <= mse_mm + 1e-12
+        # Verify Band 1 specifically benefits strongly from clipping its outliers
+        rho = q_mc.compute_radial_grid(64, 64, spec.device)
+        m1 = (rho > 0.15) & (rho <= 0.40)
+        assert (spec[m1] - rec_mc[m1]).pow(2).mean() < (spec[m1] - rec_mm[m1]).pow(2).mean()
+
+    def test_invalid_band01_mode_raises(self):
+        with pytest.raises(ValueError, match="band01_mode"):
+            Base3TritQuantizer(band01_mode="invalid")
+
+

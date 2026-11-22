@@ -1,0 +1,281 @@
+{
+  "model": "gpt2-124m",
+  "steps": 1500,
+  "lr": 0.0003,
+  "base_pretrained": {
+    "fp32_ppl": 11.958,
+    "mean_ed_edges": 0.033514,
+    "mean_rayleigh": 1.9915,
+    "attn_low_freq_pct": 12.64,
+    "ffn_low_freq_pct": 12.94,
+    "pareto": {
+      "Sub1-0.91b": {
+        "bpp": 0.91,
+        "ppl": 21695.715
+      },
+      "Calib-1.64b": {
+        "bpp": 1.632,
+        "ppl": 8062.934
+      },
+      "Mid-2.18b": {
+        "bpp": 2.176,
+        "ppl": 6737.692
+      },
+      "HiFi-2.79b": {
+        "bpp": 2.788,
+        "ppl": 3302.084
+      },
+      "Cons-3.77b": {
+        "bpp": 3.766,
+        "ppl": 2495.556
+      }
+    },
+    "baselines": {
+      "spatial_int4_4.00b": 2440.516,
+      "spatial_int2_2.00b": 118769.817,
+      "spatial_int2_g64_2.25b": 38916.755
+    }
+  },
+  "runs": [
+    {
+      "condition": "std_ft",
+      "topo_lambda": 0.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 167.0,
+      "fp32_ppl": 4.647,
+      "mean_ed_edges": 0.033663,
+      "mean_rayleigh": 1.9914,
+      "attn_low_freq_pct": 12.64,
+      "ffn_low_freq_pct": 12.95,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 12314.426
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 1990.26
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 1520.085
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 1199.582
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 673.119
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 1449.101,
+        "spatial_int2_2.00b": 19168.834,
+        "spatial_int2_g64_2.25b": 3209.12
+      }
+    },
+    {
+      "condition": "rayleigh_25",
+      "topo_lambda": 25.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 239.4,
+      "fp32_ppl": 4.896,
+      "mean_ed_edges": 0.024795,
+      "mean_rayleigh": 1.4067,
+      "attn_low_freq_pct": 28.53,
+      "ffn_low_freq_pct": 30.54,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 21627.485
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 2291.579
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 2288.876
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 1514.647
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 411.166
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 1493.594,
+        "spatial_int2_2.00b": 7691.472,
+        "spatial_int2_g64_2.25b": 12920.172
+      }
+    },
+    {
+      "condition": "rayleigh_75",
+      "topo_lambda": 75.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 240.5,
+      "fp32_ppl": 6.117,
+      "mean_ed_edges": 0.016782,
+      "mean_rayleigh": 0.8998,
+      "attn_low_freq_pct": 50.35,
+      "ffn_low_freq_pct": 54.64,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 22410.7
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 4134.601
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 2741.247
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 1661.353
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 443.196
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 2222.461,
+        "spatial_int2_2.00b": 30419.413,
+        "spatial_int2_g64_2.25b": 22665.756
+      }
+    },
+    {
+      "condition": "rayleigh_200",
+      "topo_lambda": 200.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 239.2,
+      "fp32_ppl": 9.348,
+      "mean_ed_edges": 0.010398,
+      "mean_rayleigh": 0.5365,
+      "attn_low_freq_pct": 72.3,
+      "ffn_low_freq_pct": 77.35,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 68338.584
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 13008.363
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 3217.475
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 5223.762
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 206.324
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 3002.39,
+        "spatial_int2_2.00b": 21078.407,
+        "spatial_int2_g64_2.25b": 34370.786
+      }
+    },
+    {
+      "condition": "rayleigh_500",
+      "topo_lambda": 500.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 238.4,
+      "fp32_ppl": 15.184,
+      "mean_ed_edges": 0.006861,
+      "mean_rayleigh": 0.3439,
+      "attn_low_freq_pct": 85.49,
+      "ffn_low_freq_pct": 89.97,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 80355.539
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 12631.389
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 12506.537
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 8546.695
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 563.958
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 28982.648,
+        "spatial_int2_2.00b": 111406.073,
+        "spatial_int2_g64_2.25b": 120016.3
+      }
+    },
+    {
+      "condition": "anneal_200",
+      "topo_lambda": 200.0,
+      "anneal": true,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 228.9,
+      "fp32_ppl": 9.102,
+      "mean_ed_edges": 0.010697,
+      "mean_rayleigh": 0.5538,
+      "attn_low_freq_pct": 71.13,
+      "ffn_low_freq_pct": 76.25,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 81225.252
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 11985.48
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 3161.073
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 5540.887
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 195.007
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 2591.865,
+        "spatial_int2_2.00b": 21327.508,
+        "spatial_int2_g64_2.25b": 35983.305
+      }
+    }
+  ]
+}

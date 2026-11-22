@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 title: "Inducing Spectral Smoothness in Neural Weight Manifolds via 2D Dirichlet Regularization"
 type: software
-version: "1.0.0"
+version: "1.1.0"
 authors:
   - family-names: Carbonell Martínez
     given-names: Mario Raúl
@@ -18,4 +18,4 @@ keywords:
   - discrete-cosine-transform
   - quantization
   - edge-ai
-abstract: "Dirichlet Weight Regularization (dreg) — a discrete 2D Dirichlet harmonic energy penalty that breaks permutation symmetry, concentrates 2D-DCT spectral energy, and improves hierarchical Base-3 trit spectral quantization (.tritq) across a configurable 0.43–3.77 bpp rate-distortion frontier. Validated on TinyStories-10M (72.1% roughness reduction; 6.76–7.25 PPL gain at calibrated 1.638 bpp and 7.02 PPL gain at 2.181 bpp) and MNIST MLPs (-84.5% roughness; +10.72% low-pass truncation accuracy), paired with a portable C11 zero-copy DMA micro-kernel."
+abstract: "Dirichlet Weight Regularization (dreg) — a scale-invariant Riemannian Rayleigh 2D Dirichlet penalty with parameter-weighted layer aggregation that breaks permutation symmetry, compacts >91% of Attention and FFN 2D-DCT spectral energy below rho <= 0.40, and pairs with zero-overhead MSE-clipped / Lloyd-Max Base-3 Trit quantization (.tritq). Multi-seed (N=3) 10k-step experiments on TinyStories-10M achieve 16.87 +/- 1.73 PPL at 1.638 bpp (4.04x lower than standard TritQ, 2.19x lower than Group INT2 g=64 at 27% fewer bits) and 95.60 +/- 28.26 PPL at sub-1-bit 0.914 bpp (11.4x lower). Pre-trained GPT-2 (124M) rayleigh_sg adaptation cuts roughness by 95.6% and lowers compressed perplexity 23x-77x across 1.63-3.77 bpp, backed by a portable C11 direct spectral matvec micro-kernel (13.0 KB SRAM, 650x reduction)."

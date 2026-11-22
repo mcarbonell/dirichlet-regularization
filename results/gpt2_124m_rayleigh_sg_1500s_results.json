@@ -1,0 +1,282 @@
+{
+  "model": "gpt2-124m",
+  "normalization": "rayleigh_sg",
+  "steps": 1500,
+  "lr": 0.0003,
+  "base_pretrained": {
+    "fp32_ppl": 11.958,
+    "mean_ed_edges": 0.033514,
+    "mean_rayleigh": 1.9915,
+    "attn_low_freq_pct": 12.64,
+    "ffn_low_freq_pct": 12.94,
+    "pareto": {
+      "Sub1-0.91b": {
+        "bpp": 0.91,
+        "ppl": 37046.564
+      },
+      "Calib-1.64b": {
+        "bpp": 1.632,
+        "ppl": 8355.36
+      },
+      "Mid-2.18b": {
+        "bpp": 2.176,
+        "ppl": 5474.797
+      },
+      "HiFi-2.79b": {
+        "bpp": 2.788,
+        "ppl": 2638.977
+      },
+      "Cons-3.77b": {
+        "bpp": 3.766,
+        "ppl": 1761.023
+      }
+    },
+    "baselines": {
+      "spatial_int4_4.00b": 2440.516,
+      "spatial_int2_2.00b": 118769.817,
+      "spatial_int2_g64_2.25b": 38916.755
+    }
+  },
+  "runs": [
+    {
+      "condition": "std_ft",
+      "topo_lambda": 0.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 168.6,
+      "fp32_ppl": 4.647,
+      "mean_ed_edges": 0.033663,
+      "mean_rayleigh": 1.9914,
+      "attn_low_freq_pct": 12.64,
+      "ffn_low_freq_pct": 12.95,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 15216.598
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 4130.356
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 4050.955
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 2546.294
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 684.464
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 1449.101,
+        "spatial_int2_2.00b": 19168.834,
+        "spatial_int2_g64_2.25b": 3209.12
+      }
+    },
+    {
+      "condition": "rayleigh_sg_25",
+      "topo_lambda": 25.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 228.4,
+      "fp32_ppl": 5.352,
+      "mean_ed_edges": 0.007314,
+      "mean_rayleigh": 1.2852,
+      "attn_low_freq_pct": 32.77,
+      "ffn_low_freq_pct": 37.25,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 15003.946
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 2052.392
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 638.34
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 152.759
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 31.964
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 963.102,
+        "spatial_int2_2.00b": 255975.318,
+        "spatial_int2_g64_2.25b": 84184.269
+      }
+    },
+    {
+      "condition": "rayleigh_sg_75",
+      "topo_lambda": 75.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 227.0,
+      "fp32_ppl": 9.023,
+      "mean_ed_edges": 0.002311,
+      "mean_rayleigh": 0.7347,
+      "attn_low_freq_pct": 62.31,
+      "ffn_low_freq_pct": 68.21,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 18908.936
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 936.018
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 389.421
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 172.752
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 57.193
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 1106.612,
+        "spatial_int2_2.00b": 23531.333,
+        "spatial_int2_g64_2.25b": 52159.775
+      }
+    },
+    {
+      "condition": "rayleigh_sg_200",
+      "topo_lambda": 200.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 227.9,
+      "fp32_ppl": 13.685,
+      "mean_ed_edges": 0.001542,
+      "mean_rayleigh": 0.5768,
+      "attn_low_freq_pct": 72.1,
+      "ffn_low_freq_pct": 77.73,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 1407.648
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 344.391
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 139.786
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 50.338
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 24.419
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 1041.686,
+        "spatial_int2_2.00b": 20116.298,
+        "spatial_int2_g64_2.25b": 7853.309
+      }
+    },
+    {
+      "condition": "rayleigh_sg_500",
+      "topo_lambda": 500.0,
+      "anneal": false,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 229.2,
+      "fp32_ppl": 18.638,
+      "mean_ed_edges": 0.001464,
+      "mean_rayleigh": 0.5506,
+      "attn_low_freq_pct": 73.02,
+      "ffn_low_freq_pct": 79.25,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 940.31
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 178.708
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 60.351
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 33.072
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 23.369
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 1115.456,
+        "spatial_int2_2.00b": 12355.218,
+        "spatial_int2_g64_2.25b": 10029.899
+      }
+    },
+    {
+      "condition": "rayleigh_sg_anneal_200",
+      "topo_lambda": 200.0,
+      "anneal": true,
+      "steps": 1500,
+      "lr": 0.0003,
+      "train_time_s": 218.6,
+      "fp32_ppl": 12.93,
+      "mean_ed_edges": 0.001626,
+      "mean_rayleigh": 0.5949,
+      "attn_low_freq_pct": 71.15,
+      "ffn_low_freq_pct": 76.84,
+      "pareto": {
+        "Sub1-0.91b": {
+          "bpp": 0.91,
+          "ppl": 1409.307
+        },
+        "Calib-1.64b": {
+          "bpp": 1.632,
+          "ppl": 281.842
+        },
+        "Mid-2.18b": {
+          "bpp": 2.176,
+          "ppl": 117.546
+        },
+        "HiFi-2.79b": {
+          "bpp": 2.788,
+          "ppl": 43.205
+        },
+        "Cons-3.77b": {
+          "bpp": 3.766,
+          "ppl": 21.621
+        }
+      },
+      "baselines": {
+        "spatial_int4_4.00b": 997.091,
+        "spatial_int2_2.00b": 20288.87,
+        "spatial_int2_g64_2.25b": 10351.49
+      }
+    }
+  ]
+}

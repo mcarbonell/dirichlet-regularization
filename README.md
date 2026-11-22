@@ -3,11 +3,11 @@
 # Dirichlet Regularization (`dreg`)
 ### Spatial Smoothness in Neural Weight Manifolds for 2D-DCT Spectral Compression
 
+[![PyPI](https://img.shields.io/pypi/v/dirichlet-regularization.svg)](https://pypi.org/project/dirichlet-regularization/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-red.svg)](https://pytorch.org/)
 [![CI](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml/badge.svg)](https://github.com/mcarbonell/dirichlet-regularization/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-99_passed-brightgreen.svg)](https://github.com/mcarbonell/dirichlet-regularization/tree/main/tests)
-[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen.svg)](https://github.com/mcarbonell/dirichlet-regularization/tree/main/tests)
+[![Tests](https://img.shields.io/badge/tests-102_passed-brightgreen.svg)](https://github.com/mcarbonell/dirichlet-regularization/tree/main/tests)
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Preprint (PDF)](https://img.shields.io/badge/Preprint-PDF-purple.svg)](https://github.com/mcarbonell/dirichlet-regularization/blob/main/paper/paper-draft.pdf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mcarbonell/dirichlet-regularization/blob/main/LICENSE)
@@ -18,43 +18,37 @@
 
 ## The Core Idea
 
-Standard neural networks treat weight matrices as unstructured, permutation-invariant point clouds. After training with isotropic $L_2$ weight decay, their 2D spatial frequency spectrum resembles **flat white noise** — variance is spread uniformly across all frequencies, making frequency-domain compression ineffective.
+Standard neural networks treat weight matrices as unstructured, permutation-invariant point clouds. After training with isotropic $L_2$ weight decay, their 2D spatial frequency spectrum resembles **flat white noise** — only `~12.6%` of Frobenius energy lies below normalized frequency $\rho \le 0.40$, making frequency-domain compression ineffective.
 
-**Dirichlet Regularization (`dreg`)** introduces a simple inductive bias during training: *neighboring entries on a 2D weight lattice should vary smoothly*, analogous to topographic organization in biological cortex.
+**Dirichlet Regularization (`dreg`)** introduces a simple geometric inductive bias during training: *neighboring entries on a 2D weight lattice should vary smoothly*, analogous to topographic organization in biological cortex.
 
-Penalizing discrete 2D spatial differences breaks permutation symmetry and **concentrates spectral energy in the low-frequency harmonics of the orthonormal 2D-DCT** — up to **~72%** of Frobenius energy below $\rho \le 0.40$ on square Attention projections (`256×256`) and **52.8%** on MNIST MLPs — enabling hierarchical Base-3 Trit spectral quantization (`.tritq`) across a configurable `0.43–3.77 bpp` rate–distortion frontier.
+By combining **scale-invariant Riemannian Rayleigh normalization** ($\mathcal{R}(W) = \sum \Delta^2 / (2\|W\|_F^2)$) with **parameter-weighted layer aggregation**, `dreg` eliminates rectangular FFN gradient starvation and concentrates **91.6% (Attention) and 94.2% (FFN)** of total Frobenius energy below $\rho \le 0.40$ — enabling zero-overhead **MSE-clipped / Lloyd–Max Base-3 Trit Quantization (`.tritq`)** that beats both unregularized TritQ (**4.04× lower PPL at 1.638 bpp**, **11.4× lower PPL at sub-1-bit 0.914 bpp**) and Spatial Group-wise INT2 (`g=64`, **2.19× lower PPL using 27% fewer bits**).
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig1_weight_heatmaps.png" alt="Spatial Weight Structures: Standard AdamW vs Dirichlet Regularization" width="90%">
+  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig1_weight_heatmaps.png" alt="Emergent 2D Cortical Weight Manifolds in TinyStories-10M" width="90%">
 </p>
 
-> **Figure 1: Illustrative Spatial Weight Structures (MNIST MLP, 64×64 top-left patches).** 3-epoch MNIST MLP (`fc1` top, `fc2` bottom, unnormalized $\epsilon = 2 \times 10^{-3}$). Left: Standard AdamW yields high-frequency unstructured weights (edge-normalized $E_D = 0.0016$ on `fc1`). Right: 2D Dirichlet regularization induces smooth spatial manifolds ($E_D = 0.0001$, $-94\%$ roughness). On full TinyStories-10M Transformers (Table 2 of the preprint), mean $E_D$ drops by **$-72.1\%$** ($0.0123 \to 0.0034$ `numel`; $0.0062 \to 0.0017$ `edges`).
+> **Figure 1: Emergent 2D Cortical Weight Manifolds in TinyStories-10M (10,000 steps, seed 42).** Representative Layer-3 weights (`mlp.gate_proj` top, `attn.q_proj` bottom). Left: Standard AdamW yields white-noise geometry (`12.9%` / `12.5%` energy $\le 0.40$). Right: Rayleigh + parameter-weighted Dirichlet annealing ($\lambda = 2.0 \to 0$) induces continuous cortical-like weight manifolds across **both** rectangular FFN and square Attention projections (`94.1%` / `91.4%` energy $\le 0.40$).
 
 ---
 
 ## The Mathematics
 
-Standard $L_2$ weight decay penalizes **magnitude** and is strictly invariant to row/column permutations:
+Standard $L_2$ weight decay penalizes magnitude and is strictly invariant to row/column permutations ($\|\pi(W)\sigma(W)\|_F^2 = \|W\|_F^2$). **Dirichlet Regularization** penalizes discrete 2D spatial differences on the unit lattice $\mathbb{Z}_M \times \mathbb{Z}_N$ via the separable Neumann graph Laplacians $L_M$ and $L_N$:
 
-$$\mathcal{L}_{L_2}(W) = \frac{\gamma}{2} \|W\|_F^2$$
+$$\mathcal{R}(W) = \frac{\sum_{i=1}^{M-1}\sum_{j=1}^N (W_{i+1,j}-W_{i,j})^2 + \sum_{i=1}^M\sum_{j=1}^{N-1} (W_{i,j+1}-W_{i,j})^2}{2\|W\|_F^2 + \epsilon} \in [0, 4]$$
 
-**Dirichlet Regularization** penalizes **2D discrete spatial differences** across the $M \times N$ weight lattice via the separable Neumann graph Laplacians $L_M \in \mathbb{R}^{M \times M}$ and $L_N \in \mathbb{R}^{N \times N}$:
+Because the eigenvectors of the 1D Neumann Laplacian are exactly the orthonormal **Type-II DCT** basis vectors, $\mathcal{R}(W)$ diagonalizes cleanly in the 2D-DCT domain $S = D_M W D_N^\top$:
 
-$$\mathcal{E}_D^{\text{var}}(W) = \frac{1}{2MN}\!\left(\sum_{i=1}^{M-1}\sum_{j=1}^N (W_{i+1,j}-W_{i,j})^2 + \sum_{i=1}^M\sum_{j=1}^{N-1} (W_{i,j+1}-W_{i,j})^2\right) = \frac{1}{2MN}\Big(\operatorname{Tr}(W^\top L_M W) + \operatorname{Tr}(W L_N W^\top)\Big)$$
+$$\mathcal{R}(W) = \frac{\sum_{k=0}^{M-1}\sum_{l=0}^{N-1} 4\!\left[\sin^2\!\left(\frac{\pi k}{2M}\right) + \sin^2\!\left(\frac{\pi l}{2N}\right)\right] S_{k,l}^2}{2\sum_{k,l} S_{k,l}^2}$$
 
-Because the eigenvectors of the 1D Neumann path-graph Laplacian are exactly the orthonormal **Type-II DCT** basis vectors, $\mathcal{E}_D$ diagonalizes in the 2D-DCT domain $S = D_M W D_N^\top$ (`numel` convention $= 2\,\mathcal{E}_D^{\text{var}}$):
-
-$$\mathcal{E}_D^{\text{numel}}(W) = \frac{1}{MN} \sum_{k=0}^{M-1}\sum_{l=0}^{N-1} 4\!\left[\sin^2\!\left(\frac{\pi k}{2M}\right) + \sin^2\!\left(\frac{\pi l}{2N}\right)\right] S_{k,l}^2$$
-
-High-frequency modes $(k, l)$ are penalized quadratically, concentrating weight energy into the lowest 2D-DCT harmonics.
-
-> **Normalization note:** `dreg` provides `normalization="numel"` ($\frac{1}{MN}\sum \Delta^2 = 2\,\mathcal{E}_D^{\text{var}}$, default), `normalization="edges"` ($\approx \mathcal{E}_D^{\text{var}}$), and scale-invariant `normalization="rayleigh"` ($\frac{\sum \Delta^2}{2\|W\|_F^2} \in [0, 4]$, immune to $L_2$ magnitude shrinkage), plus `layer_weighting="param_weighted"` to balance gradient strength equally across square Attention and wide FFN layers. See [dreg/topology.py](https://github.com/mcarbonell/dirichlet-regularization/blob/main/dreg/topology.py) and §3.1 of the preprint.
+Weighting each layer by its parameter share $\frac{M_l N_l}{\sum_j M_j N_j}$ yields exact shape symmetry between square Attention and $4\times$ wider FFN projections, while $\langle W, \nabla_W \mathcal{R}(W)\rangle = 0$ projects the diffusion gradient tangentially onto the Frobenius sphere (preventing norm collapse during from-scratch training). For adapting outlier-heavy pre-trained LLMs (e.g., GPT-2 124M), `normalization="rayleigh_sg"` detaches $\|W\|_F^2$ to yield pure Neumann diffusion ($-\Delta W / \|W\|_F^2$) with identically zero DC gradient.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig2_dct_energy_spectra.png" alt="2D-DCT Spectral Energy Compaction" width="90%">
+  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig2_dct_energy_spectra.png" alt="Layer-Averaged 2D-DCT Spectral Energy Compaction" width="90%">
 </p>
 
-> **Figure 2: 2D-DCT Cumulative Spectral Energy (TinyStories-10M, Layer 3).** Cumulative Frobenius energy vs. normalized radius $\rho \in [0, \sqrt{2}]$. Standard AdamW stays flat ($\sim 13\text{--}14\%$ below $\rho = 0.40$). Dirichlet regularization concentrates **~72%** of energy below $\rho = 0.40$ in Attention $W_q$ (`256×256`), and **~25%** in the $4\times$ larger FFN gate projection (`256×1024`) due to $1/(MN)$ per-weight gradient scaling.
+> **Figure 2: Layer-Averaged 2D-DCT Spectral Compaction (all 24 FFN & 32 Attention layers, TinyStories-10M, 10k steps).** Legacy `numel+uniform` (purple) starves FFNs at `21.7%` vs. `54.5%` Attention. Scale-invariant `rayleigh + param_weighted` (teal) eliminates FFN starvation completely (`94.1%` FFN / `91.4%` Attention vs. `12.9%` / `12.5%` Standard AdamW).
 
 ---
 
@@ -79,108 +73,97 @@ pip install -e ".[examples]"    # torchvision + matplotlib for examples
 pip install -e ".[dev]"         # pytest, pytest-cov, ruff
 ```
 
-### Apply to Any PyTorch Model (2 lines of code)
+### Apply to Any PyTorch Model (3 lines of code)
 
-#### Option A: Universal loss wrapper (zero model modifications)
 ```python
-from dreg import DirichletLoss
+from dreg import DirichletLoss, StepCooldownScheduler
 
 # Automatically skips nn.Embedding, lm_head, frozen weights, and deduplicates tied weights.
-# Use normalization="rayleigh" + layer_weighting="param_weighted" for scale-invariant,
-# FFN-balanced smoothing (recommended: weight_decay=0.25–0.50), or classic normalization="numel"
-# with weight_decay=15.0–30.0.
+# For from-scratch training: normalization="rayleigh", weight_decay=1.0–2.0 + StepCooldownScheduler.
+# For pre-trained LLM adaptation: normalization="rayleigh_sg" (scale lambda ~ N_total * sigma_W).
 topo_reg = DirichletLoss(
-    weight_decay=0.50,
+    weight_decay=2.0,
     normalization="rayleigh",
     layer_weighting="param_weighted",
 )
+topo_sched = StepCooldownScheduler(topo_reg, total_steps=10_000, cooldown_ratio=0.15)
 
 # Inside your training loop:
 task_loss = criterion(model(inputs), targets)
+topo_sched.step()
 total_loss = task_loss + topo_reg(model)
 total_loss.backward()
 ```
-
-#### Option B: Drop-in replacement for `nn.Linear`
-```python
-import torch.nn as nn
-from dreg import TopographicLinear
-
-class MyModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc1 = TopographicLinear(512, 2048)
-        self.fc2 = TopographicLinear(2048, 10)
-        self.act = nn.GELU()
-
-    def forward(self, x):
-        return self.fc2(self.act(self.fc1(x)))
-
-    def dirichlet_loss(self):
-        return 0.5 * (self.fc1.dirichlet_energy() + self.fc2.dirichlet_energy())
-
-model = MyModel()
-loss = criterion(model(x), y) + 15.0 * model.dirichlet_loss()
-loss.backward()
-```
-
-> **Calibration tip:** Because `dirichlet_energy_2d` is normalized by $MN$, raw values are $\sim 10^{-3}\text{--}10^{-2}$. Use $\lambda_{\text{topo}} \in [5.0, 30.0]$ (rather than `0.01`, which is washed out by AdamW).
 
 ---
 
 ## Empirical Highlights
 
-### 1. TinyStories 10.56M Transformer (81.92M tokens, A10G GPU)
+### 1. TinyStories-10M Multi-Seed (`N = 3`, 10,000 steps / 81.92M tokens, A10G)
 
-Evaluated on 25 validation batches (204,800 tokens; full results in [results/pareto_curve_tinystories_results.json](https://github.com/mcarbonell/dirichlet-regularization/blob/main/results/pareto_curve_tinystories_results.json) and Preprint Table 5):
+Controlled multi-seed (`seeds = 42, 100, 2024`) evaluation on 25 validation batches (204,800 tokens; full logs in [results/tmlr_10000s_mseclip_multiseed_results.json](https://github.com/mcarbonell/dirichlet-regularization/blob/main/results/tmlr_10000s_mseclip_multiseed_results.json)):
 
-| Quantization Regime | Radii $(r_0, r_1, r_2)$ | Linear Rate | Compression | Std PPL | Topo PPL ($\lambda=30$) | Dirichlet Gain |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Dense FP32 (Reference) | — | 32.000 bpp | 1.0× | **6.11** | 6.46 | $-0.35$ PPL |
-| Conservative | `(0.45, 0.90, 1.41)` | 3.774 bpp | 8.5× | 8.87 | **8.22** | **+0.65 PPL** |
-| High-Fidelity | `(0.30, 0.70, 1.30)` | 2.794 bpp | 11.5× | 14.97 | **12.43** | **+2.54 PPL** |
-| Mid-Band | `(0.20, 0.55, 1.15)` | 2.181 bpp | 14.7× | 30.10 | **23.08** | **+7.02 PPL** |
-| **Calibrated TritQ** | **`(0.15, 0.40, 1.00)`** | **1.638 bpp** | **19.5×** | 73.75 | **66.50** | **+7.25 PPL** |
-| Aggressive | `(0.10, 0.30, 0.75)` | 0.914 bpp | 35.0× | **835.92** | 1117.65 | $-281.73$ PPL |
-| Ultra-Aggressive | `(0.08, 0.22, 0.50)` | 0.430 bpp | 74.4× | 5274.18 | **2890.48** | **+2383.70 PPL** |
+| Condition (10k, `N=3`) | FP32 PPL | Attn / FFN $E_{\le 0.4}$ | `0.430 bpp` (74×) | **`0.914 bpp` (35×)** | **`1.638 bpp` (19.5×)** | **`2.181 bpp` (14.7×)** | `2.794 bpp` (11.5×) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Standard ($\lambda=0$) | **5.81 ± 0.01** | 12.6% / 12.9% | 3472.7 ± 950.0 | 1085.5 ± 214.1 | 68.21 ± 6.94 | 19.70 ± 0.70 | 9.79 ± 0.17 |
+| Rayleigh ($\lambda=1.0$) | 7.39 ± 0.02 | 91.3% / 95.0% | 1914.7 ± 558.8 | 223.8 ± 134.7 | 23.74 ± 6.51 | 11.77 ± 1.87 | 8.68 ± 0.50 |
+| Rayleigh ($\lambda=2.0$) | 8.19 ± 0.06 | **96.2% / 98.3%** | 1302.0 ± 395.5 | 120.6 ± 40.3 | 23.46 ± 5.71 | 12.48 ± 1.76 | 9.14 ± 0.03 |
+| **Rayleigh Anneal ($2\to 0$)** | 7.78 ± 0.05 | 91.6% / 94.2% | **1131.4 ± 317.5** | **95.60 ± 28.26** | **16.87 ± 1.73** | **10.71 ± 0.64** | **8.56 ± 0.07** |
 
-* Roughness reduction: **$-72.1\%$** ($E_D^{\text{edges}}: 0.006178 \to 0.001724$; $E_D^{\text{numel}}: 0.012316 \to 0.003438$).
-* At `2.181 bpp`, Topographic TritQ (`23.08 PPL`) outperforms both Standard TritQ (`30.10 PPL`) and per-tensor Spatial INT2 RTN (`41.67 PPL` at `2.00 bpp`).
+**SOTA PTQ Baselines on the exact same 10k `N=3` Standard models:**
+* **Spatial Group-wise INT2 (`g=64`, `2.25 bpp`)**: `36.91 ± 6.03 PPL` — beaten **2.19×** by our `1.638 bpp` model (**27% fewer bits**) and **3.45×** by our `2.181 bpp` model (`10.71 ± 0.64 PPL`).
+* **Spatial Uniform INT2 (`2.00 bpp`)**: `47.39 ± 7.90 PPL` (**2.81× worse** than our `1.638 bpp`).
+* **Budget-Matched Quantized SVD (`INT8`, `~1.64 bpp`)**: `555.65 ± 65.74 PPL` (**32.9× worse**).
+* **Zero-Bit-Overhead Quantizer Ablation (`1.638 bpp`, `rayleigh_anneal2`, `N=3`)**: `minmax + legacy` (`51.55 ± 3.90`) → `+ Lloyd–Max Band-2` (`31.62 ± 2.88`) → `+ MSE-Clip Band-0/1` (**`16.87 ± 1.73`**; verified on-disk `.tritq` round-trip `16.702 == 16.702`).
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig3_pareto_quantization.png" alt="Calibration Sweep and Empirical Rate-Distortion Frontier" width="95%">
+  <img src="https://raw.githubusercontent.com/mcarbonell/dirichlet-regularization/main/docs/figures/fig3_pareto_quantization.png" alt="Rayleigh Calibration Sweep and Multi-Seed Rate-Distortion Frontier" width="95%">
 </p>
 
-> **Figure 3: Calibration Sweep and Rate–Distortion Frontier (TinyStories-10M).** (a) 5-point calibration sweep ($\lambda_{\text{topo}} \in \{0, 0.01, 5, 15, 30\}$, 2k steps) at `1.638 bpp`. (b) Converged 10k-step rate–distortion frontier across `1.638–3.774 bpp` (Preprint Table 5).
+> **Figure 3:** (a) 2k-step Rayleigh calibration sweep showing balanced Attn/FFN compaction (`12.7% → 97.8%`) and monotonic compression gains. (b) Converged 10k multi-seed (`N=3`) rate–distortion frontier vs. SOTA PTQ baselines.
 
-### 2. Vision MLP on MNIST (`234.75K` parameters, 5 epochs)
+### 2. Pre-Trained OpenAI GPT-2 (124M, 48 `Conv1D` matrices / 84.9M weights)
+
+1,500-step `rayleigh_sg + param_weighted` adaptation (`lr=3e-4`, A10G, [results/gpt2_124m_rayleigh_sg_1500s_results.json](https://github.com/mcarbonell/dirichlet-regularization/blob/main/results/gpt2_124m_rayleigh_sg_1500s_results.json)):
+
+| GPT-2 (124M) Variant | FP32 | Attn / FFN $E_{\le 0.4}$ | `1.63 bpp` | `2.18 bpp` | `2.79 bpp` | `3.77 bpp` | Spatial INT4 (`4.0b`) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Base Pre-Trained (0 steps) | 11.96 | 12.6% / 12.9% | 8355.36 | 5474.80 | 2638.98 | 1761.02 | 2440.52 |
+| Standard Fine-Tuned ($\lambda=0$) | **4.65** | 12.6% / 12.9% | 4130.36 | 4050.95 | 2546.29 | 684.46 | 1449.10 |
+| `rayleigh_sg` ($\lambda=25$) | 5.35 | 32.8% / 37.2% | 2052.39 | 638.34 | 152.76 | 31.96 | 963.10 |
+| **`rayleigh_sg` Anneal ($200\to 0$)** | 12.93 | 71.2% / 76.8% | 281.84 | 117.55 | 43.20 | **21.62** | 997.09 |
+| **`rayleigh_sg` ($\lambda=500$)** | 18.64 | **73.0% / 79.2%** | **178.71** | **60.35** | **33.07** | 23.37 | 1115.46 |
+
+* Cuts weight roughness by **−95.6%** (`0.033514 → 0.001464`) and reduces compressed perplexity by **23×–77×** across `1.63–3.77 bpp` (beating Group INT2 `g=64` `3209.12 PPL` at `2.25 bpp` by **53.2×** at `2.18 bpp`).
+
+### 3. Vision MLP on MNIST (`234.75K` parameters, 5 epochs)
 
 | Metric | Standard MLP | Topographic MLP (`dreg`, $\lambda=15$) | Gain |
 | :--- | :---: | :---: | :---: |
 | FP32 Test Accuracy | **97.87%** | 97.58% | $-0.29\%$ (preserved) |
 | Dirichlet Energy ($E_D$, `numel`) | 0.0219 | **0.0034** | **$-84.5\%$ roughness** |
 | Low-Frequency Energy ($\rho \le 0.40$) | 27.87% | **52.84%** | **$1.90\times$ compaction** |
-| Low-Pass Truncation Acc ($\rho \le 0.40$) | 30.69% | **41.41%** | **+10.72% abs.** (+11.01% rel. retention) |
+| Low-Pass Truncation Acc ($\rho \le 0.40$) | 30.69% | **41.41%** | **+10.72% abs.** |
 | Base-3 TritQ Acc (`1.64 bpp`) | 87.40% | **88.59%** | **+1.19% accuracy** |
 
 ---
 
 ## Quantization Format (`.tritq`) & C11 Direct Spectral Micro-Kernel
 
-* **Exact Base-3 Trit Packing + Lloyd-Max Band-2:** 5 balanced trits $\{-1, 0, +1\}$ pack bijectively into 1 byte ($3^5 = 243 \le 256 \Rightarrow 1.60\text{ bits/trit}$), quantized via 1D Lloyd-Max MSE-optimal scaling and decoded in $\mathcal{O}(1)$ time via a 1.25 KB L1-cache lookup table. Non-topographic parameters (`token_emb`, `lm_head`, LayerNorms) are preserved uncompressed in FP16.
+* **Exact Base-3 Trit Packing + Zero-Overhead Optimal Quantization:** 5 balanced trits $\{-1, 0, +1\}$ pack bijectively into 1 byte ($3^5 = 243 \le 256 \Rightarrow 1.60\text{ bits/trit}$), paired with **1D Lloyd–Max Band-2 scaling** and **MSE-optimal asymmetric clipping on Bands 0 & 1** (`band01_mode="mse_clip"`), decoded in $\mathcal{O}(1)$ via a `1.25 KB` L1-cache LUT. Non-topographic parameters (`token_emb`, `lm_head`, LayerNorms) stay uncompressed in FP16.
 * **Portable C11 Micro-Kernel (`kernel/spectral_dma_kernel.c`):**
-  * **Zero-copy async DMA double-buffering** (Win32 Events / POSIX pthreads) verified to `< 1e-5` float32 parity against PyTorch.
-  * **Direct Spectral-Domain Streaming MatVec (`c_spectral_matvec_direct`):** Computes $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$ via radix-2 $\mathcal{O}(N \log N)$ 1D-DCT directly from `.tritq` bitstreams **without materializing $M \times N$ weights or storing DCT basis tables** — cutting `1024×256` FFN working SRAM from `8.4 MB` down to **`13.0 KB`** (`650×` reduction) and running **`~45×` faster** than full-matrix 2D-IDCT reconstruction (`1.9e-6` float32 parity).
+  * **Zero-copy async DMA double-buffering** (Win32 Events / POSIX pthreads) verified to `3.6e-7` float32 parity against PyTorch.
+  * **Direct Spectral-Domain Streaming MatVec (`c_spectral_matvec_direct`):** Computes $y = \operatorname{IDCT}_{1D}(S \cdot \operatorname{DCT}_{1D}(x))$ via radix-2 $\mathcal{O}(N \log N)$ Makhoul 1D-DCT directly from `.tritq` bitstreams **without materializing $M \times N$ weights or storing DCT basis tables** — cutting `1024×256` FFN working SRAM from `8,448 KB` down to **`13.0 KB`** (**`650×` reduction**) and running **`45.6×` faster** than full-matrix 2D-IDCT reconstruction (`8.9e-7` float32 parity).
 
 ---
 
 ## Reproducing Locally (CPU)
 
 ```bash
-# 1. Run the master end-to-end verification suite (99 tests + C parity + trained MLP + controls)
+# 1. Run the master end-to-end verification suite (102 tests + C parity + trained MLP + controls)
 python examples/reproduce_all.py
 
-# 2. Build and benchmark the native C11 DMA micro-kernel
+# 2. Build and benchmark the native C11 DMA & direct spectral micro-kernel
 python kernel/build_kernel.py
 python examples/benchmark_c_dma.py
 
@@ -197,32 +180,24 @@ python examples/evaluate_falsification.py
 ```text
 dirichlet-regularization/
 ├── dreg/                            # Core Python package
-│   ├── topology.py                  # 2D Dirichlet energy, DirichletLoss & annealing schedulers
-│   ├── spectral.py                  # Orthonormal 2D-DCT/IDCT & BlockDCTTiler
-│   ├── quantization.py              # Base3TritQuantizer & .tritq binary checkpoint format
+│   ├── topology.py                  # 2D Dirichlet energy (numel/edges/rayleigh/rayleigh_sg), DirichletLoss & schedulers
+│   ├── spectral.py                  # Orthonormal 1D/2D-DCT/IDCT (float64 angles), spectral_matvec & BlockDCTTiler
+│   ├── quantization.py              # Base3TritQuantizer (mse_clip + lloyd_max) & .tritq binary checkpoint format
 │   ├── model.py                     # Reference TopographicTransformer & TopographicLinear
 │   └── baselines.py                 # Haar random orthogonal rotation & truncated SVD controls
-├── kernel/                          # Native C11 zero-copy DMA micro-kernel
-│   ├── spectral_dma_kernel.c        # O(1) trit LUT + Win32/POSIX async double-buffered DMA
+├── kernel/                          # Native C11 zero-copy DMA & direct spectral matvec micro-kernel
+│   ├── spectral_dma_kernel.c        # O(1) trit LUT, Win32/POSIX async DMA, radix-2 Makhoul 1D-DCT streaming matvec
 │   ├── build_kernel.py              # Cross-platform compiler wrapper (gcc/clang/cl)
 │   └── Makefile
 ├── examples/                        # Local CPU/GPU reproducible scripts
-│   ├── reproduce_all.py             # End-to-end verification (tests, C parity, trained MLP, controls)
-│   ├── train_topographic.py         # Minimal TopographicTransformer training example
-│   ├── train_mlp_dirichlet.py       # Vision MLP benchmark (synthetic / MNIST)
-│   ├── evaluate_falsification.py    # Controlled Standard vs Topographic comparison
-│   ├── evaluate_pareto_curve.py     # Local rate-distortion sweep & plotting
-│   ├── train_multiseed_sweep.py     # Multi-seed robustness & annealing sweep
-│   ├── train_gpt2_dirichlet.py      # GPT-2 fine-tuning & TritQ audit
-│   └── benchmark_c_dma.py           # Native C kernel parity & throughput benchmark
-├── benchmarks/                      # Modal cloud A10G GPU training & evaluation scripts
-├── results/                         # Raw JSON logs backing paper Tables 4–5 and diagnostics
-├── paper/                           # Academic preprint (LaTeX source, BibTeX, figures, PDF)
+├── benchmarks/                      # Modal cloud A10G multi-seed training, GPT-2, SOTA PTQ & figure pipelines
+├── results/                         # Raw JSON logs backing all paper Tables 1–6 and ablations
+├── paper/                           # Academic manuscript (LaTeX source, BibTeX, 300-DPI figures, PDF)
 │   ├── paper-draft.pdf
 │   ├── paper-draft.tex
 │   ├── references.bib
 │   └── figures/
-├── tests/                           # 99 automated unit, integration, and C-kernel tests (96% cov)
+├── tests/                           # 102 automated unit, integration, and C-kernel tests
 ├── CITATION.cff
 ├── pyproject.toml
 └── README.md
@@ -249,4 +224,4 @@ Read the full manuscript in [`paper/paper-draft.pdf`](https://github.com/mcarbon
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](https://github.com/mcarbonell/dirichlet-regularization/blob/main/LICENSE) file for details.
+MIT License — see [`LICENSE`](https://github.com/mcarbonell/dirichlet-regularization/blob/main/LICENSE) for details.

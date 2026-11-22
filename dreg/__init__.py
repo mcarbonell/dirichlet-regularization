@@ -19,7 +19,7 @@ from .topology import (
     get_grid_dimensions,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     "DirichletLoss",
     "dirichlet_energy_2d",
